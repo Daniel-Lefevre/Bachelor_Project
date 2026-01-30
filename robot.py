@@ -3,18 +3,20 @@ from environment import configuation
 import keyboard
 import time
 import paramiko
-import random
-import numpy as np
 
 class RobotArm:
     def __init__(self, ip, positions, ID):
         self.robot = NiryoRobot(ip)
         self.ID = ID
-        self.workspace = f"Workspace_{self.ID}"
+        self.conveyorWorkspace = f"Conveyor_workspace_{self.ID}"
+        self.StorageWorkspace = f"Storage_workspace_{self.ID}"
         self.safePosition = [0.0, 0.0, 0.0, 0.0, -1.57, 0.0]
         self.conveyorSpeed = 50
-        self.placePosition, self.pickStoragePosition, self.placeStoragePosition, self.observationPosition = positions
+        self.placeConveyor, self.placeStorage, self.observationPoseConveyor, self.observationPoseStorage = positions
         self.conveyor_id = self.robot.set_conveyor()
+        self.brightnessLevel = configuation["brightness"][self.ID]
+        self.contrastLevel = configuation["contrast"][self.ID]
+        self.saturationLevel = configuation["saturation"][self.ID]
 
     def startConveyorbelt(self):
         self.robot.run_conveyor(self.conveyor_id, speed=self.conveyorSpeed, direction=ConveyorDirection.BACKWARD)
@@ -36,49 +38,35 @@ class RobotArm:
         if all_pins[4].state == PinState.LOW:
             self.stopConveyorbelt()
 
-            settings_sum = np.zeros(3)
-            settings_counter = 0
-            for shape in [ObjectShape.CIRCLE, ObjectShape.SQUARE]:
-                for color in [ObjectColor.BLUE, ObjectColor.RED, ObjectColor.GREEN]:
-                    for i in range(100):
-                        brightsness = random.uniform(0.5,2)
-                        contrast = random.uniform(0.3,2)
-                        saturation = random.uniform(0,2)
-                        self.robot.set_brightness(brightsness)
-                        self.robot.set_contrast(contrast)
-                        self.robot.set_saturation(saturation)
-                        obj_found, object_pose, shape_ret, color_ret = self.robot.detect_object(self.workspace,
-                                                                                                shape=shape,
-                                                                                                color=color
-                                                                                                )
-                        if not obj_found:
-                            print(f"No object for robot ID: {self.ID}")
-                        else:
-                            settings_sum += np.array([brightsness, contrast, saturation])
-                            settings_counter += 1
-                            print(f"Object found for robot ID: {self.ID}")
-                    print("SWITCH!!!!!")
-                    time.sleep(5)
-                    # print(f"Object: {shape_ret}, {color_ret}")
-                    # print(object_pose)
-                    # x, y, object_yaw = object_pose
-                    # target_pose = self.robot.get_target_pose_from_rel(self.workspace,
-                    #                                                 0,
-                    #                                                 x,
-                    #                                                 y,
-                    #                                                 object_yaw)
-                    # self.robot.pick_from_pose(target_pose)
-                    #self.pickAndPlace()
-            print(settings_sum / settings_counter)
+            obj_found, object_pose, shape_ret, color_ret = self.robot.detect_object(self.conveyorWorkspace,
+                                                                                    shape=ObjectShape.ANY,
+                                                                                    color=ObjectColor.ANY
+                                                                                    )
+            if not obj_found:
+                print(f"No object for robot ID: {self.ID}")
+            else:
+                print(f"Object found for robot ID: {self.ID}")
+                print(f"Object: {shape_ret}, {color_ret}")
+                print(object_pose)
+                x, y, object_yaw = object_pose
+                target_pose = self.robot.get_target_pose_from_rel(self.conveyorWorkspace,
+                                                                    0,
+                                                                    x,
+                                                                    y,
+                                                                    object_yaw)
+
+                self.robot.pick_from_pose(target_pose)
+                self.pickAndPlace()
+
         
     def setUp(self):
         # Start the conveyor belt
         self.startConveyorbelt()
 
         # Camera settings
-        self.robot.set_brightness(0.5)
-        self.robot.set_contrast(0.5)
-        self.robot.set_saturation(0.5)
+        self.robot.set_brightness(self.brightnessLevel)
+        self.robot.set_contrast(self.contrastLevel)
+        self.robot.set_saturation(self.saturationLevel)
 
         # Update the tool of the robot (make it autodetect)
         self.robot.update_tool()
@@ -97,17 +85,20 @@ class RobotArm:
         print(f"Done with setup ID: {self.ID}")
 
         # Save the workspace defined in environment
-        if (self.workspace not in self.robot.get_workspace_list()):
-            self.robot.save_workspace_from_robot_poses(self.workspace, *configuation[f"Workspace_{self.ID}"])
+        if (self.conveyorWorkspace not in self.robot.get_workspace_list()):
+            self.robot.save_workspace_from_robot_poses(self.conveyorWorkspace, *configuation[self.conveyorWorkspace])
+
+        if (self.StorageWorkspace not in self.robot.get_workspace_list()):
+            self.robot.save_workspace_from_robot_poses(self.StorageWorkspace, *configuation[self.StorageWorkspace])
 
     def moveToObservationPosition(self):
-        self.robot.move_pose(self.observationPosition)        
+        self.robot.move_pose(self.observationPoseConveyor)        
     
     def place(self, storage):
         if storage:
-            self.robot.move_pose(*self.placeStoragePosition)
+            self.robot.move_pose(*self.observationPoseConveyor)
         else:
-            self.robot.move_pose(*self.placePosition)
+            self.robot.move_pose(*self.placeConveyor)
         self.releaseWithTool()
 
         
@@ -131,7 +122,10 @@ class System:
         self.RobotArms = []
         # Add all the robot arms
         for i in range(len(ips)):
-            self.RobotArms.append(RobotArm(ips[i], positions[i], i))
+            ID = i
+            IP_address = ips[i]
+            poses = positions[i]
+            self.RobotArms.append(RobotArm(IP_address, poses, ID))
 
     def setUp(self):
         # Setup the robotarms and conveyor belts
