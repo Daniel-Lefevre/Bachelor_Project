@@ -4,6 +4,8 @@ from environment import configuration
 import keyboard
 import time
 import paramiko
+from queue import PriorityQueue
+import copy
 
 class RobotArm:
     def __init__(self, ip, positions, ID):
@@ -15,16 +17,30 @@ class RobotArm:
         self.conveyorWorkspace = f"Conveyor_workspace_{self.ID}"
         self.StorageWorkspace = f"Storage_workspace_{self.ID}"
         self.safePosition = [0.0, 0.0, 0.0, 0.0, -1.57, 0.0]
-        self.conveyorSpeed = 50
+        self.conveyorSpeed = 75
         self.placeConveyor, self.placeStorage, self.observationPoseConveyor, self.observationPoseStorage = positions
         self.conveyor_id = self.robot.set_conveyor()
         self.brightnessLevel = configuration["brightness"][self.ID]
         self.contrastLevel = configuration["contrast"][self.ID]
         self.saturationLevel = configuration["saturation"][self.ID]
+        self.queue = PriorityQueue()
+        self.objectUpdates = []
+        self.rules = {}
         self.lock = threading.Lock()
 
     def startConveyorbelt(self):
         self.robot.run_conveyor(self.conveyor_id, speed=self.conveyorSpeed, direction=ConveyorDirection.BACKWARD)
+
+    def addToQueue(self, priority, workarea, shape, color):
+        self.queue.put((priority, (workarea, shape, color)))
+
+    def addRule(self, shape, color, placePosition):
+        self.rules[(shape, color)] = placePosition
+
+    def getObjectUpdates(self):
+        objectUpdatesCopy = copy.deepcopy(self.objectUpdates)
+        self.objectUpdates.clear()
+        return objectUpdatesCopy
 
     def enableCamera(self):
         output = ""
@@ -73,12 +89,12 @@ class RobotArm:
     def releaseWithTool(self):
         self.robot.release_with_tool()
 
-    def findObjectInWorkspace(self, workspace):
+    def findAndMoveObject(self, workspace, shape, color, destination):
         # Try to detect the object 10 times
         for i in range(10):
             obj_found, object_pose, shape_ret, color_ret = self.robot.detect_object(workspace,
-                                                                                    shape=ObjectShape.ANY,
-                                                                                    color=ObjectColor.ANY
+                                                                                    shape=shape,
+                                                                                    color=color
                                                                                     )
             if (obj_found):
                 break
@@ -86,11 +102,22 @@ class RobotArm:
         if not obj_found:
             print(f"No object for robot ID: {self.ID} on {workspace}")
             self.moveToSafePosition()
-            self.moveToObservationPositionConveyor()
             return None
         else:
             print(f"Object found for robot ID: {self.ID} on {workspace}")
             print(f"Object: {shape_ret}, {color_ret}")
+
+            finalDestination = False
+            if (destination == None):
+                area = self.rules[(shape_ret, color_ret)]
+                if area == "Storage":
+                    destination = self.placeStorage
+                    finalDestination = True
+                elif area == "Conveyor":
+                    destination = self.placeConveyor
+                else:
+                    print(f"Unknown area, {area}")
+
             x, y, object_yaw = object_pose
 
             target_pose = self.robot.get_target_pose_from_rel(workspace,
@@ -105,43 +132,58 @@ class RobotArm:
                     target_pose.x += 0
                     target_pose.y -= 0.011
                 elif (self.ID == 1):
-                    target_pose.x -= 0.02
-                    target_pose.y += 0.01
-                    target_pose.z += 0.014
+                    target_pose.x -= 0.015
+                    target_pose.y += 0.005
+                    target_pose.z += 0.011
             elif workspace == self.conveyorWorkspace:
                 if (self.ID == 0):
-                    target_pose.x += 0.005
-                    target_pose.y -= 0.013
-                    target_pose.z += 0.007
+                    target_pose.x += 0.0065
+                    target_pose.y -= 0.0145
+                    target_pose.z += 0.005
                 elif (self.ID == 1):
-                    target_pose.x += 0.02
-                    target_pose.y += 0.01
-                    target_pose.z += 0.007
+                    target_pose.x -= 0.01
+                    target_pose.y += 0.02
+                    target_pose.z += 0.005
 
-            return target_pose
+            if target_pose:
+                self.robot.pick_from_pose(target_pose)
+                self.pickAndPlace(destination, finalDestination, shape_ret, color_ret)
 
     def takeObjectFromStorage(self):
         with self.lock:
             self.stopConveyorbelt()
             self.moveToObservationPositionStorage()
             print("Moved to observation storage")
-            target_pose = self.findObjectInWorkspace(self.StorageWorkspace)
-            if target_pose:
-                self.robot.pick_from_pose(target_pose)
-                self.pickAndPlace()
+            self.findAndMoveObject(self.StorageWorkspace)
             self.startConveyorbelt()
 
 
     def Loop(self):
         with self.lock:
-            all_pins = self.robot.get_digital_io_state()
-            if all_pins[4].state == PinState.LOW:
+            if (self.queue.empty()):
+                self.startConveyorbelt()
+                all_pins = self.robot.get_digital_io_state()
+                if all_pins[4].state == PinState.LOW:
+                    self.stopConveyorbelt()
+                    time.sleep(0.5)
+                    self.addToQueue(1, "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
+            else:
+                print("There is something in the queue")
                 self.stopConveyorbelt()
-                time.sleep(0.5)
-                target_pose = self.findObjectInWorkspace(self.conveyorWorkspace)
+                _, (workarea, shape, color) = self.queue.get()
+                self.objectUpdates.append((shape, color, "In Transit"))
 
-                self.robot.pick_from_pose(target_pose)
-                self.pickAndPlace()
+                if (workarea=="Conveyor"):
+                    self.moveToObservationPositionConveyor()
+                    destination = None
+                    self.findAndMoveObject(self.conveyorWorkspace, shape, color, destination)
+                elif (workarea=="Storage"):
+                    self.moveToObservationPositionStorage()
+                    destination = self.placeConveyor
+                    self.findAndMoveObject(self.StorageWorkspace, shape, color, destination)
+                else:
+                    print(f"Workarea not defined. Workearea was {workarea}, but must be 'Storage' og 'Conveyor'")
+
 
 
     def setUp(self):
@@ -194,102 +236,25 @@ class RobotArm:
     def moveToObservationPositionStorage(self):
         self.robot.move_pose(*self.observationPoseStorage)
 
-    def place(self):
-        self.robot.move_pose(*self.placeConveyor)
+    def placeAndRelease(self, destination):
+        self.robot.move_pose(*destination)
         self.releaseWithTool()
 
-    def pickAndPlace(self):
+    def pickAndPlace(self, destination, finalDestination, shape, color):
         print("move to safe")
         self.moveToSafePosition()
         print("safe pos")
-        self.place()
+        self.placeAndRelease(destination)
+        if (finalDestination):
+            self.objectUpdates.append((shape, color, f"Storage {self.ID}"))
+
         self.moveToSafePosition()
         self.moveToObservationPositionConveyor()
-        self.startConveyorbelt()
         print(f"Pick up and place, ID: {self.ID}")
+
 
     def disconnect(self):
         self.stopConveyorbelt()
         self.robot.unset_conveyor(self.conveyor_id)
         self.robot.close_connection()
         print(f"Connection closed, ID: {self.ID}")
-
-
-class System:
-    def __init__(self, ips, positions):
-        self.RobotArms = []
-        self.running = True
-
-        # Add all the robot arms
-        for i in range(len(ips)):
-            ID = i
-            IP_address = ips[i]
-            poses = positions[i]
-            self.RobotArms.append(RobotArm(IP_address, poses, ID))
-
-    def robot_worker(self, arm):
-        # Setup Phase
-        print(f"Robot {arm.ID} is initializing")
-        arm.setUp()
-        print(f"Robot {arm.ID} setup finished")
-
-        # 2. Monitoring Phase
-        while self.running:
-            arm.Loop()
-            time.sleep(0.1)
-
-    def listenToIR(self):
-        self.threads = []
-
-        # Start one thread per robot arm
-        for arm in self.RobotArms:
-            t = threading.Thread(target=self.robot_worker, args=(arm,))
-            t.daemon = True
-            self.threads.append(t)
-            t.start()
-
-        # Check for events to do
-        while self.running:
-            # Robot 0 grab object from storage
-            if keyboard.is_pressed('0'):
-                self.RobotArms[0].takeObjectFromStorage()
-                time.sleep(0.5)
-
-            # Robot 1 grab object from storage
-            elif keyboard.is_pressed('1'):
-                self.RobotArms[1].takeObjectFromStorage()
-                time.sleep(0.5)
-
-            # Robot 0 take image
-            elif keyboard.is_pressed('9'):
-                self.RobotArms[0].takeImage()
-                time.sleep(0.5)
-
-            # Robot 1 take image
-            elif keyboard.is_pressed('2'):
-                self.RobotArms[1].takeImage()
-                time.sleep(0.5)
-
-            # Shutdown event
-            elif keyboard.is_pressed('s'):
-                print("Shutting Down")
-                self.running = False
-            else:
-                time.sleep(0.1)
-
-        # Wait for the threads to finnish their task before shutting down
-        for t in self.threads:
-            t.join()
-
-        # Disconnect the arms
-        for arm in self.RobotArms:
-            arm.disconnect()
-
-        print("Everything has been shut down")
-
-
-if __name__ == "__main__":
-    IPs = configuration["ips"]
-    positions = configuration["positions"]
-    system = System(IPs, positions)
-    system.listenToIR()
