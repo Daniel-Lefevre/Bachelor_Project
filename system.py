@@ -30,6 +30,9 @@ class System:
             poses = positions[i]
             self.RobotArms.append(RobotArm(IP_address, poses, ID))
 
+    def setRunning(self, condition):
+        self.running = condition
+
     def robot_worker(self, arm):
         # Setup Phase
         print(f"Robot {arm.ID} is initializing")

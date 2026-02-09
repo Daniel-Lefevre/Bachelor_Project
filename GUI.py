@@ -54,6 +54,15 @@ class GUI:
             self.root.grid_rowconfigure(i, weight=1)
             self.root.grid_columnconfigure(i, weight=1)
 
+        exit_btn = ctk.CTkButton(
+            self.root,
+            fg_color="red",
+            hover_color=self.border_color,
+            text="Shutdown Robots",
+            command=lambda : self.system.setRunning(False)
+        )
+        exit_btn.grid(row=1, column=2, padx=15, pady=(0, 15), sticky="se")
+
         # Start the periodic update loop
         self.update_loop()
 

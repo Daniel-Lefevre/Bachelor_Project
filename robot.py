@@ -83,21 +83,52 @@ class RobotArm:
     def moveToSafePosition(self):
         self.robot.move_joints(self.safePosition)
 
+    def inverseWorkspacepose(self, workspace_name, target_pose):
+        workspace = np.array(configuration[workspace_name])
+        pose = np.array([target_pose.x, target_pose.y, target_pose.z, target_pose.roll, target_pose.pitch, target_pose.yaw])
+        workspace_center = np.mean(workspace, axis=0)
+        difference = workspace_center - pose
+        new_pose = workspace_center + difference
+        new_pose[2] = target_pose.z
+        return PoseObject(*new_pose)
+
     def graspWithTool(self):
         self.robot.grasp_with_tool()
+
+    # Manually correct the offset of the robots (could e.g. be caused by camera distortion)
+    def correctRobotOffset(self, target_pose, workspace):
+        if self.ID == 1:
+            target_pose = self.inverseWorkspacepose(workspace, target_pose)
+
+        if workspace == self.StorageWorkspace:
+            if (self.ID == 0):
+                target_pose.z += 0.014
+                target_pose.x += 0
+                target_pose.y -= 0.011
+            elif (self.ID == 1):
+                target_pose.x += 0
+                target_pose.y += 0
+                target_pose.z += 0.011
+        elif workspace == self.conveyorWorkspace:
+            if (self.ID == 0):
+                target_pose.x += 0.0115
+                target_pose.y -= 0.0195
+                target_pose.z += 0.005
+            elif (self.ID == 1):
+                target_pose.x += 0.008
+                target_pose.y += 0.01
+                target_pose.z += 0.005
+        return target_pose
 
     def releaseWithTool(self):
         self.robot.release_with_tool()
 
     def findAndMoveObject(self, workspace, shape, color, destination):
         # Try to detect the object 10 times
-        for i in range(10):
-            obj_found, object_pose, shape_ret, color_ret = self.robot.detect_object(workspace,
-                                                                                    shape=shape,
-                                                                                    color=color
-                                                                                    )
-            if (obj_found):
-                break
+        obj_found, object_pose, shape_ret, color_ret = self.robot.detect_object(workspace,
+                                                                                shape=shape,
+                                                                                color=color
+                                                                                )
 
         if not obj_found:
             print(f"No object for robot ID: {self.ID} on {workspace}")
@@ -125,28 +156,10 @@ class RobotArm:
                                                                 x,
                                                                 y,
                                                                 object_yaw)
-            # Manually correct the offset of the robots (could e.g. be caused by camera distortion)
-            if workspace == self.StorageWorkspace:
-                if (self.ID == 0):
-                    target_pose.z += 0.014
-                    target_pose.x += 0
-                    target_pose.y -= 0.011
-                elif (self.ID == 1):
-                    target_pose.x -= 0.015
-                    target_pose.y += 0.005
-                    target_pose.z += 0.011
-            elif workspace == self.conveyorWorkspace:
-                if (self.ID == 0):
-                    target_pose.x += 0.0065
-                    target_pose.y -= 0.0145
-                    target_pose.z += 0.005
-                elif (self.ID == 1):
-                    target_pose.x -= 0.01
-                    target_pose.y += 0.02
-                    target_pose.z += 0.005
+            corrected_target_pose = self.correctRobotOffset(target_pose, workspace)
 
-            if target_pose:
-                self.robot.pick_from_pose(target_pose)
+            if corrected_target_pose:
+                self.robot.pick_from_pose(corrected_target_pose)
                 self.pickAndPlace(destination, finalDestination, shape_ret, color_ret)
 
     def takeObjectFromStorage(self):
