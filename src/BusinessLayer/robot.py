@@ -1,6 +1,6 @@
 from pyniryo import *
 import threading
-from environment import configuration
+from resources.environment import configuration
 import keyboard
 import time
 import paramiko
@@ -125,10 +125,13 @@ class RobotArm:
 
     def findAndMoveObject(self, workspace, shape, color, destination):
         # Try to detect the object 10 times
-        obj_found, object_pose, shape_ret, color_ret = self.robot.detect_object(workspace,
-                                                                                shape=shape,
-                                                                                color=color
-                                                                                )
+        for i in range(2):
+            obj_found, object_pose, shape_ret, color_ret = self.robot.detect_object(workspace,
+                                                                                    shape=shape,
+                                                                                    color=color
+                                                                                    )
+            if (obj_found):
+                break
 
         if not obj_found:
             print(f"No object for robot ID: {self.ID} on {workspace}")

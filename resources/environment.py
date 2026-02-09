@@ -5,7 +5,21 @@ configuration = {
     "contrast" : [1.22847006, 1.31395065],
     "saturation" : [1.13681471, 1.12498354],
 
-    "positions":[
+    # Times for the DT
+    "Observed_times" : {
+        "Conveyor_0" : 9.18,
+        "Conveyor_1" : 8.56,
+        "Robot_0_Conveyor_to_Conveyor" : 6.15,
+        "Robot_1_Conveyor_to_Conveyor" : 6.25,
+        "IR_0" : 4.33,
+        "IR_1" : 4.84,
+        "Robot_0_Storage_to_Conveyor" : 14.66,
+        "Robot_1_Storage_to_Conveyor" : 16.54,
+        "Robot_0_Conveyor_to_Storage" : 7.5,
+        "Robot_1_Conveyor_to_Storage" : 6.72
+    },
+
+    "positions" : [
         # Robot_0's positions
         [
             [0.2028789492464582, 0.1698822601182645, 0.13624773367036977, 0.03513008510678816, 1.4919714064477891, -0.011501923089995283],    # PlaceConveyor

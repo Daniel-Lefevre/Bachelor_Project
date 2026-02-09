@@ -6,8 +6,8 @@ class GUI:
         self.storageObjects = system.getObjects()
 
         # Load the images
-        diff_img = Image.open("Images/different_storage.png").convert("RGBA")
-        same_img = Image.open("Images/same_storage.png").convert("RGBA")
+        diff_img = Image.open("resources/Images/different_storage.png").convert("RGBA")
+        same_img = Image.open("resources/Images/same_storage.png").convert("RGBA")
 
         # Apply the transformation
         white_diff = self.make_white(diff_img)
@@ -168,6 +168,5 @@ class GUI:
         self.root.after(500, self.update_loop)
 
     def clicked(self, params):
-        print(params)
         self.system.moveObject(*params)
 

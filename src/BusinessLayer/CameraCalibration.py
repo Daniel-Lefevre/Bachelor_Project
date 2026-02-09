@@ -1,5 +1,5 @@
 from pyniryo import *
-from environment import configuration
+from resources.environment import configuration
 import time
 import numpy as np
 import random

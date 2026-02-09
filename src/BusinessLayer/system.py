@@ -1,6 +1,7 @@
 from typing import Literal
 from dataclasses import dataclass
-from robot import *
+from src.BusinessLayer.robot import *
+from src.BusinessLayer.DT.DTRunner import DTRunner
 
 @dataclass
 class StorageObject:
@@ -42,10 +43,17 @@ class System:
         # 2. Monitoring Phase
         while self.running:
             arm.Loop()
+            time.sleep(0.05)
 
-    def listenToIR(self):
+    def Setup(self):
+        self.DT = DTRunner()
+        self.DT.startDT(120)
+
+        t = threading.Thread(target=self.startupRobots, daemon=True)
+        t.start()
+
+    def startupRobots(self):
         self.threads = []
-
         # Start one thread per robot arm
         for arm in self.RobotArms:
             t = threading.Thread(target=self.robot_worker, args=(arm,))
@@ -55,18 +63,8 @@ class System:
 
         # Check for events to do
         while self.running:
-            # Robot 0 grab object from storage
-            if keyboard.is_pressed('0'):
-                self.RobotArms[0].takeObjectFromStorage()
-                time.sleep(0.5)
-
-            # Robot 1 grab object from storage
-            elif keyboard.is_pressed('1'):
-                self.RobotArms[1].takeObjectFromStorage()
-                time.sleep(0.5)
-
             # Robot 0 take image
-            elif keyboard.is_pressed('9'):
+            if keyboard.is_pressed('9'):
                 self.RobotArms[0].takeImage()
                 time.sleep(0.5)
 
@@ -75,12 +73,7 @@ class System:
                 self.RobotArms[1].takeImage()
                 time.sleep(0.5)
 
-            # Shutdown event
-            elif keyboard.is_pressed('s'):
-                print("Shutting Down")
-                self.running = False
-            else:
-                time.sleep(0.1)
+            time.sleep(0.05)
 
         # Wait for the threads to finnish their task before shutting down
         for t in self.threads:
@@ -113,6 +106,8 @@ class System:
 
     def moveObject(self, name, destination):
         object = self.findObjectByName(name)
+
+        self.DT.event("Pick Up")
 
         # Tell to pick up from storage
         self.RobotArms[int(object.position[-1])].addToQueue(2, "Storage", object.shape, object.color)
