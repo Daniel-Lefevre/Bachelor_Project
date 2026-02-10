@@ -1,6 +1,6 @@
 from pyniryo import *
 import threading
-from resources.environment import configuration
+from environment import configuration
 import keyboard
 import time
 import paramiko
@@ -25,7 +25,7 @@ class RobotArm:
         self.saturationLevel = configuration["saturation"][self.ID]
         self.queue = PriorityQueue()
         self.objectUpdates = []
-        self.rules = [{}, {}]
+        self.rules = {}
         self.lock = threading.Lock()
 
     def startConveyorbelt(self):
@@ -34,8 +34,8 @@ class RobotArm:
     def addToQueue(self, priority, workarea, shape, color):
         self.queue.put((priority, (workarea, shape, color)))
 
-    def setRules(self, rules):
-        self.rules = rules
+    def addRule(self, shape, color, placePosition):
+        self.rules[(shape, color)] = placePosition
 
     def getObjectUpdates(self):
         objectUpdatesCopy = copy.deepcopy(self.objectUpdates)
@@ -108,7 +108,7 @@ class RobotArm:
             elif (self.ID == 1):
                 target_pose.x += 0
                 target_pose.y += 0
-                target_pose.z += 0.013
+                target_pose.z += 0.011
         elif workspace == self.conveyorWorkspace:
             if (self.ID == 0):
                 target_pose.x += 0.0115
@@ -116,7 +116,7 @@ class RobotArm:
                 target_pose.z += 0.005
             elif (self.ID == 1):
                 target_pose.x += 0.008
-                target_pose.y += 0.02
+                target_pose.y += 0.01
                 target_pose.z += 0.005
         return target_pose
 
@@ -125,13 +125,10 @@ class RobotArm:
 
     def findAndMoveObject(self, workspace, shape, color, destination):
         # Try to detect the object 10 times
-        for i in range(10):
-            obj_found, object_pose, shape_ret, color_ret = self.robot.detect_object(workspace,
-                                                                                    shape=shape,
-                                                                                    color=color
-                                                                                    )
-            if (obj_found):
-                break
+        obj_found, object_pose, shape_ret, color_ret = self.robot.detect_object(workspace,
+                                                                                shape=shape,
+                                                                                color=color
+                                                                                )
 
         if not obj_found:
             print(f"No object for robot ID: {self.ID} on {workspace}")
@@ -182,7 +179,7 @@ class RobotArm:
                 if all_pins[4].state == PinState.LOW:
                     self.stopConveyorbelt()
                     time.sleep(0.5)
-                    self.addToQueue(configuration["PickFromIRSensorPriority"], "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
+                    self.addToQueue(1, "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
             else:
                 print("There is something in the queue")
                 self.stopConveyorbelt()

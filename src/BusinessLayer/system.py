@@ -101,6 +101,7 @@ class System:
     def moveObject(self, name, destination):
         object = self.findObjectByName(name)
 
+        print(object)
         self.DT.event(("Pick Up", object))
 
         # Tell to pick up from storage

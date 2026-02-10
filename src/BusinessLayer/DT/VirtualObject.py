@@ -40,10 +40,11 @@ class VirtualObject:
 
     # Returns a robot ID based on what IR sensor it is waiting at
     def IncrementInnerClock(self, rules):
+        print(self.state)
         self.innerClock += self.stepSize
         self.timeSinceStateTransition += self.stepSize
         pickUpRobotID = None
-        if (not (self.state == "Storage_0" or self.state == "Storage_1")):
+        if (not (self.state == "Storage_0" or self.state == "Storage_1" or self.state == "IR_0" or self.state == "IR_1")):
             # We need to transition to new state
             if self.timeSinceStateTransition > configuration["Observed_times"][self.state]:
                 if (self.state == "Conveyor_0"):

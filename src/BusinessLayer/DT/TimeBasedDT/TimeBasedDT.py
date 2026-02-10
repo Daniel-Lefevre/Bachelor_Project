@@ -32,7 +32,7 @@ class TimeBasedDT():
         # If an event has occured since last step
         while (not self.events.empty()):
             eventType, obj = self.events.get()
-            robotID = int(obj.position[-1])
+            robotID = int(obj.state[-1])
             if (eventType == "Pick Up"):
                 self.queues[robotID].put((configuration["PickFromStoragePriority"], self.findVirtualObject(obj.shape, obj.color)))
 
@@ -53,7 +53,7 @@ class TimeBasedDT():
             self.timeouts[i] += self.stepSize
 
     def event(self, event):
-        self.events.put(event)
+        self.events.put((event[0],self.objectToVirtualObject(event[1])))
 
     def setRules(self, rules):
         self.rules = rules
