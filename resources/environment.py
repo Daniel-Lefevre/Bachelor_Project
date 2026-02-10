@@ -1,6 +1,34 @@
+from pyniryo import ObjectShape, ObjectColor
+from dataclasses import dataclass
+from typing import Literal
+
+@dataclass
+class StorageObject:
+    name: str
+    shape: Literal[ObjectShape.CIRCLE, ObjectShape.SQUARE]
+    color: Literal[ObjectColor.RED, ObjectColor.BLUE, ObjectColor.GREEN]
+    position: Literal["Storage 1", "In Transit", "Storage 0"]
+
+
 configuration = {
+    # IP's of the niryo ned2 robots
     "ips": ["169.254.200.200", "169.254.200.201"],
 
+    # Order of execution for the robot arms
+    "PickFromStoragePriority" : 2,
+    "PickFromIRSensorPriority" : 1,
+
+    # Starting setup of the system
+    "StorageObjects" : [
+        StorageObject("Red Square", ObjectShape.SQUARE, ObjectColor.RED, "Storage 1"),
+        StorageObject("Blue Square", ObjectShape.SQUARE, ObjectColor.BLUE, "Storage 0"),
+        StorageObject("Green Square", ObjectShape.SQUARE, ObjectColor.GREEN, "Storage 1"),
+        StorageObject("Red Circle", ObjectShape.CIRCLE, ObjectColor.RED, "Storage 0"),
+        StorageObject("Blue Circle", ObjectShape.CIRCLE, ObjectColor.BLUE, "Storage 1"),
+        StorageObject("Green Circle", ObjectShape.CIRCLE, ObjectColor.GREEN, "Storage 0"),
+    ],
+
+    # Camera configurations found using experiments
     "brightness" : [1.273305, 1.35633801],
     "contrast" : [1.22847006, 1.31395065],
     "saturation" : [1.13681471, 1.12498354],
@@ -11,12 +39,16 @@ configuration = {
         "Conveyor_1" : 8.56,
         "Robot_0_Conveyor_to_Conveyor" : 6.15,
         "Robot_1_Conveyor_to_Conveyor" : 6.25,
-        "IR_0" : 4.33,
-        "IR_1" : 4.84,
+        "Robot_0_Safe_to_IR" : 4.33,
+        "Robot_1_Safe_to_IR" : 4.84,
         "Robot_0_Storage_to_Conveyor" : 14.66,
         "Robot_1_Storage_to_Conveyor" : 16.54,
         "Robot_0_Conveyor_to_Storage" : 7.5,
-        "Robot_1_Conveyor_to_Storage" : 6.72
+        "Robot_1_Conveyor_to_Storage" : 6.72,
+        "Robot_0_Conveyor_to_Safe" : 3.8,
+        "Robot_0_Storage_to_Safe" : 4.4,
+        "Robot_1_Conveyor_to_Safe" : 3.9,
+        "Robot_1_Storage_to_Safe" : 4.7,
     },
 
     "positions" : [

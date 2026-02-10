@@ -1,14 +1,7 @@
-from typing import Literal
-from dataclasses import dataclass
 from src.BusinessLayer.robot import *
 from src.BusinessLayer.DT.DTRunner import DTRunner
-
-@dataclass
-class StorageObject:
-    name: str
-    shape: Literal[ObjectShape.CIRCLE, ObjectShape.SQUARE]
-    color: Literal[ObjectColor.RED, ObjectColor.BLUE, ObjectColor.GREEN]
-    position: Literal["Storage 1", "In Transit", "Storage 0"]
+from src.BusinessLayer.Rules import Rules
+from resources.environment import StorageObject
 
 class System:
     def __init__(self, ips, positions):
@@ -22,7 +15,9 @@ class System:
             StorageObject("Blue Circle", ObjectShape.CIRCLE, ObjectColor.BLUE, "Storage 1"),
             StorageObject("Green Circle", ObjectShape.CIRCLE, ObjectColor.GREEN, "Storage 0"),
         ]
-
+        self.Rules = Rules()
+        self.DT = DTRunner()
+        self.DT.setRules(self.Rules.getRules("DT"))
 
         # Add all the robot arms
         for i in range(len(ips)):
@@ -46,7 +41,6 @@ class System:
             time.sleep(0.05)
 
     def Setup(self):
-        self.DT = DTRunner()
         self.DT.startDT(120)
 
         t = threading.Thread(target=self.startupRobots, daemon=True)
@@ -107,16 +101,20 @@ class System:
     def moveObject(self, name, destination):
         object = self.findObjectByName(name)
 
-        self.DT.event("Pick Up")
+        self.DT.event(("Pick Up", object))
 
         # Tell to pick up from storage
-        self.RobotArms[int(object.position[-1])].addToQueue(2, "Storage", object.shape, object.color)
+        self.RobotArms[int(object.position[-1])].addToQueue(configuration["PickFromStoragePriority"], "Storage", object.shape, object.color)
 
-        # Move to different storage
-        if (object.position != destination):
-            self.RobotArms[int(not int(object.position[-1]))].addRule(object.shape, object.color, "Storage")
-        # Move to same storage
-        else:
-            self.RobotArms[int(not int(object.position[-1]))].addRule(object.shape, object.color, "Conveyor")
-            self.RobotArms[int(object.position[-1])].addRule(object.shape, object.color, "Storage")
+        self.Rules.makeRuleFromEvent(object, destination)
+        robotrules = self.Rules.getRules("Robots")
+
+        for i in range(len(self.RobotArms)):
+            self.RobotArms[i].setRules(robotrules[i])
+
+        DTrules = self.Rules.getRules("DT")
+        self.DT.setRules(DTrules)
+
+
+
 

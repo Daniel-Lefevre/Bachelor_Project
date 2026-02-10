@@ -14,6 +14,9 @@ class DTRunner():
         self.lock = threading.Lock()
         self.running = False
 
+    def setRules(self, rules):
+        self.DTModel.setRules(rules)
+
     def startDT(self, runtime):
         self.runtime = runtime
         self.running = True
