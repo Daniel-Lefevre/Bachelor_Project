@@ -1,3 +1,9 @@
+import sys
+import os
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_dir = os.path.dirname(current_dir)
+project_root = os.path.dirname(src_dir)
+sys.path.append(project_root)
 from pyniryo import *
 from resources.environment import configuration
 import time
@@ -19,15 +25,20 @@ if (robot_0.hardware_status.calibration_needed):
 if (robot_1.hardware_status.calibration_needed):
     robot_1.calibrate_auto()
 
-robot_0.move_pose(*configuration["positions"][0][2])
-robot_1.move_pose(*configuration["positions"][1][2])
+# Conveyor
+#robot_0.move_pose(*configuration["positions"][0][2])
+#robot_1.move_pose(*configuration["positions"][1][2])
+
+# Storage
+robot_0.move_pose(*configuration["positions"][0][3])
+robot_1.move_pose(*configuration["positions"][1][3])
 
 for shape in [ObjectShape.SQUARE, ObjectShape.CIRCLE]:
     for color in [ObjectColor.RED, ObjectColor.BLUE, ObjectColor.GREEN]:
         sum = np.zeros((3))
         count = 0
 
-        for i in range(200):
+        for i in range(100):
             brightness = random.uniform(0.5,2)
             contrast = random.uniform(0.5,1.5)
             saturation = random.uniform(0.5,2)

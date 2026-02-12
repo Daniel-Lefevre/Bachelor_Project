@@ -20,12 +20,15 @@ class RobotArm:
         self.conveyorSpeed = 75
         self.placeConveyor, self.placeStorage, self.observationPoseConveyor, self.observationPoseStorage = positions
         self.conveyor_id = self.robot.set_conveyor()
-        self.brightnessLevel = configuration["brightness"][self.ID]
-        self.contrastLevel = configuration["contrast"][self.ID]
-        self.saturationLevel = configuration["saturation"][self.ID]
+        self.brightnessLevelConveyor = configuration["brightness"][self.ID][0]
+        self.contrastLevelConveyor = configuration["contrast"][self.ID][0]
+        self.saturationLevelConveyor = configuration["saturation"][self.ID][0]
+        self.brightnessLevelStorage = configuration["brightness"][self.ID][1]
+        self.contrastLevelStorage = configuration["contrast"][self.ID][1]
+        self.saturationLevelStorage = configuration["saturation"][self.ID][1]
         self.queue = PriorityQueue()
         self.objectUpdates = []
-        self.rules = [{}, {}]
+        self.rules = {}
         self.lock = threading.Lock()
 
     def startConveyorbelt(self):
@@ -44,7 +47,6 @@ class RobotArm:
 
     def enableCamera(self):
         output = ""
-        print(f"Trying to enable camera on robot {self.ID}")
         # Connect to the robot via SSH
         with paramiko.SSHClient() as client:
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -106,7 +108,7 @@ class RobotArm:
                 target_pose.x += 0
                 target_pose.y -= 0.011
             elif (self.ID == 1):
-                target_pose.x += 0
+                target_pose.x += 0.006
                 target_pose.y += 0
                 target_pose.z += 0.013
         elif workspace == self.conveyorWorkspace:
@@ -116,7 +118,7 @@ class RobotArm:
                 target_pose.z += 0.005
             elif (self.ID == 1):
                 target_pose.x += 0.008
-                target_pose.y += 0.02
+                target_pose.y += 0.004
                 target_pose.z += 0.005
         return target_pose
 
@@ -132,15 +134,13 @@ class RobotArm:
                                                                                     )
             if (obj_found):
                 break
+            print("CANT FIND OBJECT")
 
         if not obj_found:
             print(f"No object for robot ID: {self.ID} on {workspace}")
             self.moveToSafePosition()
             return None
         else:
-            print(f"Object found for robot ID: {self.ID} on {workspace}")
-            print(f"Object: {shape_ret}, {color_ret}")
-
             finalDestination = False
             if (destination == None):
                 area = self.rules[(shape_ret, color_ret)]
@@ -169,7 +169,6 @@ class RobotArm:
         with self.lock:
             self.stopConveyorbelt()
             self.moveToObservationPositionStorage()
-            print("Moved to observation storage")
             self.findAndMoveObject(self.StorageWorkspace)
             self.startConveyorbelt()
 
@@ -184,10 +183,9 @@ class RobotArm:
                     time.sleep(0.5)
                     self.addToQueue(configuration["PickFromIRSensorPriority"], "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
             else:
-                print("There is something in the queue")
                 self.stopConveyorbelt()
                 _, (workarea, shape, color) = self.queue.get()
-                self.objectUpdates.append((shape, color, "In Transit"))
+                self.objectUpdates.append((shape, color, "In_Transit"))
 
                 if (workarea=="Conveyor"):
                     self.moveToObservationPositionConveyor()
@@ -200,6 +198,18 @@ class RobotArm:
                 else:
                     print(f"Workarea not defined. Workearea was {workarea}, but must be 'Storage' og 'Conveyor'")
 
+    def setCameraSettings(self, workarea):
+        print(f"Changing Camera Settings for {self.ID}")
+        if (workarea == "Conveyor"):
+            self.robot.set_brightness(self.brightnessLevelConveyor)
+            self.robot.set_contrast(self.contrastLevelConveyor)
+            self.robot.set_saturation(self.saturationLevelConveyor)
+        elif (workarea == "Storage"):
+            self.robot.set_brightness(self.brightnessLevelStorage)
+            self.robot.set_contrast(self.contrastLevelStorage)
+            self.robot.set_saturation(self.saturationLevelStorage)
+        else:
+            print(f"Workarea not defined. Workearea was {workarea}, but must be 'Storage' og 'Conveyor'")
 
 
     def setUp(self):
@@ -213,11 +223,6 @@ class RobotArm:
             self.disconnect()
             return
         print(f"Camera on robot {self.ID} has been enabled")
-
-        # Camera settings
-        self.robot.set_brightness(self.brightnessLevel)
-        self.robot.set_contrast(self.contrastLevel)
-        self.robot.set_saturation(self.saturationLevel)
 
         # Start the conveyor belt
         self.startConveyorbelt()
@@ -248,25 +253,24 @@ class RobotArm:
 
     def moveToObservationPositionConveyor(self):
         self.robot.move_pose(*self.observationPoseConveyor)
+        self.setCameraSettings("Conveyor")
 
     def moveToObservationPositionStorage(self):
         self.robot.move_pose(*self.observationPoseStorage)
+        self.setCameraSettings("Storage")
 
     def placeAndRelease(self, destination):
         self.robot.move_pose(*destination)
         self.releaseWithTool()
 
     def pickAndPlace(self, destination, finalDestination, shape, color):
-        print("move to safe")
         self.moveToSafePosition()
-        print("safe pos")
         self.placeAndRelease(destination)
         if (finalDestination):
-            self.objectUpdates.append((shape, color, f"Storage {self.ID}"))
+            self.objectUpdates.append((shape, color, f"Storage_{self.ID}"))
 
         self.moveToSafePosition()
         self.moveToObservationPositionConveyor()
-        print(f"Pick up and place, ID: {self.ID}")
 
 
     def disconnect(self):

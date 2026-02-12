@@ -1,23 +1,16 @@
 from src.BusinessLayer.robot import *
 from src.BusinessLayer.DT.DTRunner import DTRunner
 from src.BusinessLayer.Rules import Rules
-from resources.environment import StorageObject
+from resources.environment import StorageObject, configuration
 
 class System:
     def __init__(self, ips, positions):
         self.RobotArms = []
         self.running = True
-        self.storageObjects = [
-            StorageObject("Red Square", ObjectShape.SQUARE, ObjectColor.RED, "Storage 1"),
-            StorageObject("Blue Square", ObjectShape.SQUARE, ObjectColor.BLUE, "Storage 0"),
-            StorageObject("Green Square", ObjectShape.SQUARE, ObjectColor.GREEN, "Storage 1"),
-            StorageObject("Red Circle", ObjectShape.CIRCLE, ObjectColor.RED, "Storage 0"),
-            StorageObject("Blue Circle", ObjectShape.CIRCLE, ObjectColor.BLUE, "Storage 1"),
-            StorageObject("Green Circle", ObjectShape.CIRCLE, ObjectColor.GREEN, "Storage 0"),
-        ]
+        self.storageObjects = configuration["StorageObjects"]
         self.Rules = Rules()
         self.DT = DTRunner()
-        self.DT.setRules(self.Rules.getRules("DT"))
+        self.DT.setRules(self.Rules.getRules())
 
         # Add all the robot arms
         for i in range(len(ips)):
@@ -26,8 +19,9 @@ class System:
             poses = positions[i]
             self.RobotArms.append(RobotArm(IP_address, poses, ID))
 
-    def setRunning(self, condition):
-        self.running = condition
+    def stopSystem(self):
+        self.running = False
+        self.DT.running = False
 
     def robot_worker(self, arm):
         # Setup Phase
@@ -41,7 +35,7 @@ class System:
             time.sleep(0.05)
 
     def Setup(self):
-        self.DT.startDT(120)
+        self.DT.startDT()
 
         t = threading.Thread(target=self.startupRobots, daemon=True)
         t.start()
@@ -101,20 +95,18 @@ class System:
     def moveObject(self, name, destination):
         object = self.findObjectByName(name)
 
-        print(object)
-        self.DT.event(("Pick Up", object))
+        self.DT.createEvent(("Pick Up", object))
 
         # Tell to pick up from storage
         self.RobotArms[int(object.position[-1])].addToQueue(configuration["PickFromStoragePriority"], "Storage", object.shape, object.color)
 
         self.Rules.makeRuleFromEvent(object, destination)
-        robotrules = self.Rules.getRules("Robots")
+        rules = self.Rules.getRules()
 
         for i in range(len(self.RobotArms)):
-            self.RobotArms[i].setRules(robotrules[i])
+            self.RobotArms[i].setRules(rules[i])
 
-        DTrules = self.Rules.getRules("DT")
-        self.DT.setRules(DTrules)
+        self.DT.setRules(rules)
 
 
 

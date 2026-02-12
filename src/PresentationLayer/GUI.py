@@ -38,7 +38,7 @@ class GUI:
         self.root.geometry("900x500")
 
         # Labels for stacks
-        self.labels = ["Storage 0", "In Transit", "Storage 1"]
+        self.labels = ["Storage_0", "In_Transit", "Storage_1"]
 
         # Keep references to stack frames so we can update them later
         self.frames = {}
@@ -59,7 +59,7 @@ class GUI:
             fg_color="red",
             hover_color=self.border_color,
             text="Shutdown Robots",
-            command=lambda : self.system.setRunning(False)
+            command=lambda : self.system.stopSystem()
         )
         exit_btn.grid(row=1, column=2, padx=15, pady=(0, 15), sticky="se")
 
@@ -129,8 +129,8 @@ class GUI:
                     separator.grid(row=0, column=j, pady=5)
 
                 for j in range(2, 5, 2):
-                    destination = "Storage 0" if obj.position == "Storage 1" and j == 4 else \
-                                  "Storage 1" if obj.position == "Storage 0" and j == 4 else obj.position
+                    destination = "Storage_0" if obj.position == "Storage_1" and j == 4 else \
+                                  "Storage_1" if obj.position == "Storage_0" and j == 4 else obj.position
                     params = [obj.name, destination]
                     btn = ctk.CTkButton(
                         row_frame,
