@@ -10,8 +10,7 @@ class TimeBasedDT():
 
     def __init__(self, stepSize):
         self.stepSize = stepSize
-        self.rules = {}
-        self.virtualObjects = [self.objectToVirtualObject(obj) for obj in [configuration["StorageObjects"][3]]]
+        self.virtualObjects = [self.objectToVirtualObject(obj) for obj in configuration["StorageObjects"]]
         self.events = Queue()
         self.virtualConveyors = [VirtualConveyor(id) for id in range(configuration["NumberOfConveyors"])]
         self.virtualRobots = [VirtualRobot(id, self.stepSize, self.virtualConveyors[id]) for id in range(configuration["NumberOfRobotArms"])]
@@ -26,35 +25,41 @@ class TimeBasedDT():
                 return object
 
     def step(self):
+        conveyorIDToBeLeft = None
         # If an event has occured since last step
         while (not self.events.empty()):
             eventType, obj = self.events.get()
-            robotID = int(obj.state.id)
             if (eventType == "Pick Up"):
-                print("Event pick up")
+                robotID = int(obj.state.id)
                 self.virtualRobots[robotID].addToQueue(configuration["PickFromStoragePriority"], self.findVirtualObject(obj.shape, obj.color))
+            elif (eventType == "IR"):
+                conveyorIDToBeLeft = obj
+            else:
+                print(f"Unknown Event: {eventType}")
 
         workingObjectsInfo = []
         # Increment the time in all objects
         for i in range(len(self.virtualRobots)):
             virtualRobot = self.virtualRobots[i]
-            print(f"Robot{virtualRobot.id}: {virtualRobot.state.key}")
             workingObject, pickUpDestination, placedPosition = virtualRobot.step()
             if (pickUpDestination != None or placedPosition != None):
                 workingObjectsInfo.append((workingObject, pickUpDestination, placedPosition))
 
         for virtualObject in self.virtualObjects:
-            print(f"{virtualObject.state.key}")
+            if (virtualObject.color == ObjectColor.BLUE and virtualObject.shape == ObjectShape.CIRCLE):
+                print(f"Blue Circle: {virtualObject.state.key}")
+            if (virtualObject.color == ObjectColor.RED and virtualObject.shape == ObjectShape.CIRCLE):
+                print(f"Red Cirlce: {virtualObject.state.key}")
             pickUpDestination = None
             placedPosition = None
             for Info in workingObjectsInfo:
-                if Info[0].state.key == virtualObject.state.key:
+                if Info[0] == virtualObject:
                     pickUpDestination = Info[1]
                     placedPosition = Info[2]
 
             ID = virtualObject.state.id
             conveyorRunning = self.virtualConveyors[ID].getInfo()
-            virtualObject.step(pickUpDestination, placedPosition, conveyorRunning)
+            virtualObject.step(pickUpDestination, placedPosition, conveyorRunning, conveyorIDToBeLeft)
             # Check if virtual object has reached in IR sensor
             if (virtualObject.hasReachedIR):
                 self.virtualRobots[ID].addToQueue(configuration["PickFromIRSensorPriority"], virtualObject)
@@ -63,7 +68,12 @@ class TimeBasedDT():
         print("-------------------")
 
     def createEvent(self, event):
-        self.events.put((event[0], self.objectToVirtualObject(event[1])))
+        eventype = event[0]
+        if (eventype == "Pick Up"):
+            self.events.put((eventype, self.objectToVirtualObject(event[1])))
+        else:
+            self.events.put(event)
+
 
     def setRules(self, rules):
         # Set the rules on the virtual robot arms

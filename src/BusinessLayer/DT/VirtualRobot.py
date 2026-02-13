@@ -2,11 +2,12 @@ from resources.environment import configuration
 from typing import Literal, TypeAlias
 from queue import PriorityQueue
 from src.BusinessLayer.DT.States import createRobotStates
+from resources.PriorityQueue import CustomPriorityQueue
 
 class VirtualRobot():
     def __init__(self, id, stepSize, conveyor):
         self.rules = {}
-        self.queue = PriorityQueue()
+        self.queue = CustomPriorityQueue(configuration["NumberOfPriorities"])
         self.id = id
         self.states = createRobotStates(self.id)
         self.state = self.states["Observation"]
@@ -23,11 +24,9 @@ class VirtualRobot():
         self.queue.put((priority, virtualObject))
 
     def step(self):
-        print(f"Robot_{self.id}: {self.currentStateProgress} / {self.currentStateProgressGoal}")
-
         if (self.state.key == "Observation"):
             if (not self.queue.empty()):
-                _, self.workingObject = self.queue.get()
+                self.workingObject = self.queue.get()
                 destination = "Conveyor" if self.workingObject.state.origin == "IR" else self.workingObject.state.origin
                 self.state = self.states[f"Observation_to_{destination}"]
                 self.currentStateProgressGoal = self.state.time

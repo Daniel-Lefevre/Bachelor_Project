@@ -10,7 +10,7 @@ class VirtualObject:
         self.stepSize = stepSize
         self.hasReachedIR = False
 
-    def step(self, pickUpDestination, placedPosition, conveyorRunning):
+    def step(self, pickUpDestination, placedPosition, conveyorRunning, conveyorIDToBeLeft):
         if (pickUpDestination):
             origin = "Conveyor" if self.state.origin == "IR" else "Storage"
             self.state = self.states[f"Robot_{self.state.id}_{origin}_to_{pickUpDestination}"]
@@ -25,11 +25,16 @@ class VirtualObject:
             self.state = self.states[f"Storage_{self.state.id}"]
             self.currentStateProgressGoal = float('inf')
             self.currentStateProgress = 0
-        elif (self.currentStateProgress > self.currentStateProgressGoal):
+        elif (conveyorIDToBeLeft != None and self.state.origin == "Conveyor" and self.state.id == conveyorIDToBeLeft):
+            # Check that the object has arrived to early
+            if (self.currentStateProgressGoal - self.currentStateProgress > 1.0):
+                print("BIG IMPORTANT ERROR: SOMETHING UNEXPECTED IN IR (ARRIVED TOO EARLY)")
             self.state = self.states[f"IR_{self.state.id}"]
             self.currentStateProgressGoal = float('inf')
             self.currentStateProgress = 0
             self.hasReachedIR = True
+        elif(self.currentStateProgressGoal - self.currentStateProgress < -1.0):
+            print("BIG IMPORTANT ERROR: SOMETHING MISSING IN IR (ARRIVED TOO LATE)")
 
         # Increment time if conveyor belt is running
         if (conveyorRunning):

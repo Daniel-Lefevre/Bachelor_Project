@@ -28,6 +28,7 @@ class RobotArm:
         self.saturationLevelStorage = configuration["saturation"][self.ID][1]
         self.queue = PriorityQueue()
         self.objectUpdates = []
+        self.IR = False
         self.rules = {}
         self.lock = threading.Lock()
 
@@ -118,7 +119,7 @@ class RobotArm:
                 target_pose.z += 0.005
             elif (self.ID == 1):
                 target_pose.x += 0.008
-                target_pose.y += 0.004
+                target_pose.y += 0.009
                 target_pose.z += 0.005
         return target_pose
 
@@ -165,23 +166,18 @@ class RobotArm:
                 self.robot.pick_from_pose(corrected_target_pose)
                 self.pickAndPlace(destination, finalDestination, shape_ret, color_ret)
 
-    def takeObjectFromStorage(self):
-        with self.lock:
-            self.stopConveyorbelt()
-            self.moveToObservationPositionStorage()
-            self.findAndMoveObject(self.StorageWorkspace)
-            self.startConveyorbelt()
-
-
     def Loop(self):
         with self.lock:
             if (self.queue.empty()):
                 self.startConveyorbelt()
                 all_pins = self.robot.get_digital_io_state()
                 if all_pins[4].state == PinState.LOW:
+                    self.IR = True
                     self.stopConveyorbelt()
                     time.sleep(0.5)
                     self.addToQueue(configuration["PickFromIRSensorPriority"], "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
+                else:
+                    self.IR = False
             else:
                 self.stopConveyorbelt()
                 _, (workarea, shape, color) = self.queue.get()

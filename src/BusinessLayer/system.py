@@ -11,6 +11,7 @@ class System:
         self.Rules = Rules()
         self.DT = DTRunner()
         self.DT.setRules(self.Rules.getRules())
+        self.lock = threading.Lock()
 
         # Add all the robot arms
         for i in range(len(ips)):
@@ -23,6 +24,20 @@ class System:
         self.running = False
         self.DT.running = False
 
+    def Setup(self):
+        self.DT.startDT()
+
+        t_ir = threading.Thread(target=self.IR_Listener, daemon=True)
+        t_ir.start()
+
+        self.threads = []
+        for arm in self.RobotArms:
+            t = threading.Thread(target=self.robot_worker, args=(arm,), daemon=True)
+            self.threads.append(t)
+            t.start()
+
+        self.startupRobotsLoop()
+
     def robot_worker(self, arm):
         # Setup Phase
         print(f"Robot {arm.ID} is initializing")
@@ -34,22 +49,11 @@ class System:
             arm.Loop()
             time.sleep(0.05)
 
-    def Setup(self):
-        self.DT.startDT()
+        # Disconnect when not running
+        arm.disconnect()
+        print("Everything has been shut down")
 
-        t = threading.Thread(target=self.startupRobots, daemon=True)
-        t.start()
-
-    def startupRobots(self):
-        self.threads = []
-        # Start one thread per robot arm
-        for arm in self.RobotArms:
-            t = threading.Thread(target=self.robot_worker, args=(arm,))
-            t.daemon = True
-            self.threads.append(t)
-            t.start()
-
-        # Check for events to do
+    def startupRobotsLoop(self):
         while self.running:
             # Robot 0 take image
             if keyboard.is_pressed('9'):
@@ -66,12 +70,6 @@ class System:
         # Wait for the threads to finnish their task before shutting down
         for t in self.threads:
             t.join()
-
-        # Disconnect the arms
-        for arm in self.RobotArms:
-            arm.disconnect()
-
-        print("Everything has been shut down")
 
     def updateObject(self, shape, color, position):
         for i in range(len(self.storageObjects)):
@@ -93,20 +91,37 @@ class System:
                 return object
 
     def moveObject(self, name, destination):
-        object = self.findObjectByName(name)
+        with self.lock:
+            object = self.findObjectByName(name)
 
-        self.DT.createEvent(("Pick Up", object))
+            self.DT.createEvent(("Pick Up", object))
 
-        # Tell to pick up from storage
-        self.RobotArms[int(object.position[-1])].addToQueue(configuration["PickFromStoragePriority"], "Storage", object.shape, object.color)
+            # Tell to pick up from storage
+            self.RobotArms[int(object.position[-1])].addToQueue(configuration["PickFromStoragePriority"], "Storage", object.shape, object.color)
 
-        self.Rules.makeRuleFromEvent(object, destination)
-        rules = self.Rules.getRules()
+            self.Rules.makeRuleFromEvent(object, destination)
+            rules = self.Rules.getRules()
 
-        for i in range(len(self.RobotArms)):
-            self.RobotArms[i].setRules(rules[i])
+            for i in range(len(self.RobotArms)):
+                self.RobotArms[i].setRules(rules[i])
 
-        self.DT.setRules(rules)
+            self.DT.setRules(rules)
+
+    def IR_Listener(self):
+        has_received_false = [False, False]
+        while(self.running):
+            for ID in range(len(self.RobotArms)):
+                robotArm = self.RobotArms[ID]
+                if (robotArm.IR):
+                    if (has_received_false[ID]):
+                        with self.lock:
+                            self.DT.createEvent(("IR", ID))
+                        has_received_false[ID] = False
+                else:
+                    has_received_false[ID] = True
+
+            time.sleep(0.1)
+
 
 
 

@@ -40,22 +40,22 @@ configuration = {
 
     # Times for the DT
     "Observed_times" : {
-        "Conveyor_0" : 9.18,
-        "Conveyor_1" : 8.56,
-        "Robot_0_Conveyor_to_Conveyor" : 6.15,
-        "Robot_1_Conveyor_to_Conveyor" : 6.25,
-        "Robot_0_Observation_to_Conveyor" : 4.33,
-        "Robot_1_Observation_to_Conveyor" : 4.84,
-        "Robot_0_Storage_to_Conveyor" : 7.2,
-        "Robot_1_Storage_to_Conveyor" : 7.2,
-        "Robot_0_Conveyor_to_Storage" : 7.5,
-        "Robot_1_Conveyor_to_Storage" : 6.72,
-        "Robot_0_Observation_to_Storage" : 8.17,
-        "Robot_1_Observation_to_Storage" : 8.17,
-        "Robot_0_Conveyor_to_Observation" : 3.8,
-        "Robot_0_Storage_to_Observation" : 4.4,
-        "Robot_1_Conveyor_to_Observation" : 3.9,
-        "Robot_1_Storage_to_Observation" : 4.7,
+        "Conveyor_0" : 9.15,
+        "Conveyor_1" : 8.76,
+        "Robot_0_Conveyor_to_Conveyor" : 6.07,
+        "Robot_1_Conveyor_to_Conveyor" : 6.0,
+        "Robot_0_Observation_to_Conveyor" : 4.35,
+        "Robot_1_Observation_to_Conveyor" : 4.6,
+        "Robot_0_Storage_to_Conveyor" : 7.01,
+        "Robot_1_Storage_to_Conveyor" : 7.27,
+        "Robot_0_Conveyor_to_Storage" : 7.7,
+        "Robot_1_Conveyor_to_Storage" : 7.1,
+        "Robot_0_Observation_to_Storage" : 7.93,
+        "Robot_1_Observation_to_Storage" : 8.97,
+        "Robot_0_Conveyor_to_Observation" : 3.03,
+        "Robot_0_Storage_to_Observation" : 5.07,
+        "Robot_1_Conveyor_to_Observation" : 4.4,
+        "Robot_1_Storage_to_Observation" : 5.0,
     },
 
     "positions" : [
@@ -63,16 +63,16 @@ configuration = {
         [
             [0.2028789492464582, 0.1698822601182645, 0.13624773367036977, 0.03513008510678816, 1.4919714064477891, -0.011501923089995283],    # PlaceConveyor
             [-0.06454724202416068, -0.25841679055839906, 0.07169377341193187, -0.5973192719933085, 1.4841716980991895, 2.5321741288187907],   # PlaceStorage
-            [0.2762497323855258, -0.0758582449018067, 0.43877878754192806, -0.3753629275811858, 1.502019805732354, -0.41621094014756393],     # ObservationPositionConveyor
-            [-0.017141437047257388, -0.15184164134413197, 0.4420253091903325, 1.019215447569528, 1.492753388202436, -1.5155268392165837]      # ObservationPositionStorage
+            [0.2762497323855258, -0.0758582449018067, 0.25877878754192806, -0.3753629275811858, 1.502019805732354, -0.41621094014756393],     # ObservationPositionConveyor
+            [-0.017141437047257388, -0.15184164134413197, 0.2520253091903325, 1.019215447569528, 1.492753388202436, -1.5155268392165837]      # ObservationPositionStorage
         ],
 
         # Robot_1's positions
         [
             [0.2157542042065579, 0.20369258396709879, 0.1216293024165304, 2.158089291524011, 1.524596107925453, 2.2656189128608912],          # PlaceConveyor
             [-0.0017103279953780066, 0.2629236782267381, 0.07237643418601386, 0.6202080849782293, 1.5623164426206442, 2.26682857594807],      # PlaceStorage
-            [0.28652238179577555, -0.07686871280532333, 0.4395967526715013, 0.13276838676211575, 1.4864162505849923, -0.08733655724281332],   # ObservationPositionConveyor
-            [-0.026088641405653677, 0.15325372778995128, 0.43126163523766603, -0.47224216359848475, 1.4558342950810048, 1.3648727293344325]   # ObservationPositionStorage
+            [0.28652238179577555, -0.07686871280532333, 0.2595967526715013, 0.13276838676211575, 1.4864162505849923, -0.08733655724281332],   # ObservationPositionConveyor
+            [-0.026088641405653677, 0.15325372778995128, 0.25126163523766603, -0.47224216359848475, 1.4558342950810048, 1.3648727293344325]   # ObservationPositionStorage
         ],
     ],
 
