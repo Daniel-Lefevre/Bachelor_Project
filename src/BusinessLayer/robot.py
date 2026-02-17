@@ -1,7 +1,6 @@
 from pyniryo import *
 import threading
 from resources.environment import configuration
-import keyboard
 import time
 import paramiko
 from queue import PriorityQueue
@@ -28,23 +27,41 @@ class RobotArm:
         self.saturationLevelStorage = configuration["saturation"][self.ID][1]
         self.queue = PriorityQueue()
         self.objectUpdates = []
+        self.anomalyUpdates = []
         self.IR = False
         self.rules = {}
         self.lock = threading.Lock()
+        self.mitigationMode = False
+
+    def getIR(self):
+        return self.IR
 
     def startConveyorbelt(self):
         self.robot.run_conveyor(self.conveyor_id, speed=self.conveyorSpeed, direction=ConveyorDirection.BACKWARD)
+
+    def setMitigationMode(self, value):
+        self.mitigationMode = value
+
+    def getRules(self):
+        return self.rules
 
     def addToQueue(self, priority, workarea, shape, color):
         self.queue.put((priority, (workarea, shape, color)))
 
     def setRules(self, rules):
-        self.rules = rules
+        for ruleKey in rules:
+            self.rules[ruleKey] = rules[ruleKey]
 
     def getObjectUpdates(self):
         objectUpdatesCopy = copy.deepcopy(self.objectUpdates)
         self.objectUpdates.clear()
         return objectUpdatesCopy
+
+    def getAnomalyUpdates(self):
+        anomalyUpdatesCopy = copy.deepcopy(self.anomalyUpdates)
+        self.anomalyUpdates.clear()
+        return anomalyUpdatesCopy
+
 
     def enableCamera(self):
         output = ""
@@ -138,13 +155,22 @@ class RobotArm:
             print("CANT FIND OBJECT")
 
         if not obj_found:
-            print(f"No object for robot ID: {self.ID} on {workspace}")
-            self.moveToSafePosition()
-            return None
+            if (destination != None): # Object is taken from storage
+                print(f"{configuration["Anomalies"][14]}")
+                self.anomalyUpdates.append(("Stop System",))
+
         else:
+            print(f"Object found: {shape_ret}, {color_ret}")
             finalDestination = False
             if (destination == None):
-                area = self.rules[(shape_ret, color_ret)]
+                area = self.rules.get((shape_ret, color_ret))
+                if (area == None):
+                    # The wrong object is on the conveyor belt, cast anomaly 5
+                    print(f"{configuration["Anomalies"][5]}")
+                    self.setMitigationMode(True)
+                    self.anomalyUpdates.append(("Anomaly 5", (self.ID, shape_ret, color_ret)))
+                    return
+
                 if area == "Storage":
                     destination = self.placeStorage
                     finalDestination = True
@@ -152,6 +178,7 @@ class RobotArm:
                     destination = self.placeConveyor
                 else:
                     print(f"Unknown area, {area}")
+                    return
 
             x, y, object_yaw = object_pose
 
@@ -164,14 +191,19 @@ class RobotArm:
 
             if corrected_target_pose:
                 self.robot.pick_from_pose(corrected_target_pose)
-                self.pickAndPlace(destination, finalDestination, shape_ret, color_ret)
+                self.pickAndPlace(destination, finalDestination, shape_ret, color_ret, workspace)
+
+    def checkIR(self):
+        all_pins = self.robot.get_digital_io_state()
+        return (all_pins[4].state == PinState.LOW)
 
     def Loop(self):
+        if (self.mitigationMode):
+            return
         with self.lock:
             if (self.queue.empty()):
                 self.startConveyorbelt()
-                all_pins = self.robot.get_digital_io_state()
-                if all_pins[4].state == PinState.LOW:
+                if (self.checkIR()):
                     self.IR = True
                     self.stopConveyorbelt()
                     time.sleep(0.5)
@@ -259,8 +291,25 @@ class RobotArm:
         self.robot.move_pose(*destination)
         self.releaseWithTool()
 
-    def pickAndPlace(self, destination, finalDestination, shape, color):
+    def pickAndPlace(self, destination, finalDestination, shape, color, workspace):
         self.moveToSafePosition()
+
+        if (self.checkIR()):
+            if (self.pickAndPlaceFirstTry):
+                # Robot arm has failed to pickup object from the conveyor, cast anomaly 4
+                print(f"{configuration["Anomalies"][4]}")
+                self.robot.release_with_tool()
+                self.findAndMoveObject(workspace, shape, color, None)
+                self.pickAndPlaceFirstTry = False
+                return
+            else:
+                print(f"Mitigation for {configuration["Anomalies"][4]} failed. Human intervention required")
+                self.anomalyUpdates.append(("Stop System",))
+                return
+
+        self.rules.pop((shape, color), None)
+
+        self.pickAndPlaceFirstTry = True
         self.placeAndRelease(destination)
         if (finalDestination):
             self.objectUpdates.append((shape, color, f"Storage_{self.ID}"))

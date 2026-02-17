@@ -18,7 +18,8 @@ class VirtualRobot():
         self.conveyor = conveyor
 
     def setRules(self, rules):
-        self.rules = rules
+        for ruleKey in rules:
+            self.rules[ruleKey] = rules[ruleKey]
 
     def addToQueue(self, priority, virtualObject):
         self.queue.put((priority, virtualObject))
@@ -57,7 +58,10 @@ class VirtualRobot():
             self.state = self.states[f"Storage_to_{destination}"]
 
         elif(self.state.key == "Observation_to_Conveyor"):
-            destination = self.rules[(self.workingObject.shape, self.workingObject.color)]
+            destination = self.rules.get((self.workingObject.shape, self.workingObject.color))
+            if (destination == None):
+                pass
+            self.rules.pop((self.workingObject.shape, self.workingObject.color))
             self.state = self.states[f"Conveyor_to_{destination}"]
 
         elif(self.state.key == "Storage_to_Conveyor"):

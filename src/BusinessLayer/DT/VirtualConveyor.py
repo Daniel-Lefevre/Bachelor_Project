@@ -1,5 +1,3 @@
-from resources.environment import configuration
-
 class VirtualConveyor:
     def __init__(self, id):
         self.id = id
@@ -10,7 +8,6 @@ class VirtualConveyor:
 
     def stop(self):
         self.running = False
-
 
     def getInfo(self):
         return self.running

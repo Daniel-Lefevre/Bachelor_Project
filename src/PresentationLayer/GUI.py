@@ -58,7 +58,7 @@ class GUI:
             self.root,
             fg_color="red",
             hover_color=self.border_color,
-            text="Shutdown Robots",
+            text="Shut down Robots",
             command=lambda : self.system.stopSystem()
         )
         exit_btn.grid(row=1, column=2, padx=15, pady=(0, 15), sticky="se")
@@ -79,9 +79,15 @@ class GUI:
         stack_frame = ctk.CTkFrame(parent, fg_color=color, corner_radius=10, height=400)
         stack_frame.pack_propagate(False)
 
+        newTitle = ""
+        if (title == "In_Transit"):
+            newTitle = "In Transit"
+        else:
+            newTitle = f"{title[:-2]} {title[-1]}"
+
         ctk.CTkLabel(
             stack_frame,
-            text=title,
+            text=newTitle,
             font=("Arial", 16, "bold"),
             fg_color=color,
             text_color=self.title_color

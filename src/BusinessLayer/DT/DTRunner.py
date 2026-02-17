@@ -1,4 +1,3 @@
-import src.BusinessLayer.DT.VirtualObject as VirtualObject
 from src.BusinessLayer.DT.TimeBasedDT.TimeBasedDT import TimeBasedDT
 from pyniryo import *
 import time

@@ -23,6 +23,24 @@ configuration = {
     "NumberOfRobotArms": 2,
     "NumberOfConveyors": 2,
 
+    # Dictionary over anomalies
+    "Anomalies" : {
+        1: "Anomaly 1: Object pushed backwards on conveyor belt",
+        2: "Anomaly 2: Object pushed forwards on conveyor belt",
+        3: "Anomaly 3: Robot arm fails to pickup object from storage",
+        4: "Anomaly 4: Robot arm fails to pickup object from conveyor",
+        5: "Anomaly 5: Wrong object detected on conveyor belt",
+        6: "Anomaly 6: Unidentified object on conveyor belt",
+        7: "Anomaly 7: Conveyor belt does not move in the right direction with theright speed",
+        8: "Anomaly 8: Object falls off conveyor belt",
+        9: "Anomaly 9: Object falls off robot arm",
+        10: "Anomaly 10: Object isn't released from vacuum",
+        11: "Anomaly 11: Anomaly 11: Storage is full",
+        12: "Anomaly 12: Unidentified object in storage",
+        13: "Anomaly 13: Wrong object in storage",
+        14: "Anomaly 14: Missing object in storage"
+    },
+
     # Starting setup of the system
     "StorageObjects" : [
         StorageObject("Red Square", ObjectShape.SQUARE, ObjectColor.RED, "Storage_1"),

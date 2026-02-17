@@ -1,8 +1,6 @@
 from src.BusinessLayer.DT.VirtualObject import VirtualObject
 from pyniryo import *
-import time
 from queue import Queue
-from resources.PriorityQueue import CustomPriorityQueue
 from resources.environment import configuration, StorageObject
 from src.BusinessLayer.DT.VirtualConveyor import VirtualConveyor
 from src.BusinessLayer.DT.VirtualRobot import VirtualRobot
@@ -77,5 +75,5 @@ class TimeBasedDT():
 
     def setRules(self, rules):
         # Set the rules on the virtual robot arms
-        for i in range(len(rules)):
+        for i in range(len(self.virtualRobots)):
             self.virtualRobots[i].setRules(rules[i])
