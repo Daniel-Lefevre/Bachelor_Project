@@ -1,20 +1,21 @@
-from PIL import Image, ImageOps
-from src.PresentationLayer.Animation import *
 import customtkinter as ctk
+from PIL import Image, ImageOps
+
+from src.PresentationLayer.Animation import *
+
 
 class GUI:
     def __init__(self, system):
         self.system = system
         self.storageObjects = system.getObjects()
-        
+
         self.loadImages()
 
-
         # Color palette
-        self.bg_color = "#495057"      # Stacks (Medium Grey)
-        self.box_color = "#6C757D"     # Item Rows (Light Grey)
-        self.title_color = "#F8F9FA"   # Headers (Bright White)
-        self.text_color = "#E9ECEF"    # Item Text (Soft White)
+        self.bg_color = "#495057"  # Stacks (Medium Grey)
+        self.box_color = "#6C757D"  # Item Rows (Light Grey)
+        self.title_color = "#F8F9FA"  # Headers (Bright White)
+        self.text_color = "#E9ECEF"  # Item Text (Soft White)
         self.border_color = "#ADB5BD"  # Borders (Brighter highlight)
 
         # Create window
@@ -38,20 +39,18 @@ class GUI:
             elif col == 1:
                 stack.grid(row=0, column=col, columnspan=2, padx=15, pady=15, sticky="nsew")
             elif col == 2:
-                stack.grid(row=0, column=col+1, padx=15, pady=15, sticky="nsew")
+                stack.grid(row=0, column=col + 1, padx=15, pady=15, sticky="nsew")
             self.frames[label] = stack
-        
+
         self.Animation = Animation(self.root, self.storageObjects)
 
-
         # Make the grid cells expand
-        gridConfigs = [2,1,1,2]
+        gridConfigs = [2, 1, 1, 2]
         for i in range(4):
             self.root.grid_columnconfigure(i, weight=gridConfigs[i])
 
         for i in range(2):
             self.root.grid_rowconfigure(i, weight=1)
-
 
         self.createAnomalyLog()
         self.createButtons()
@@ -72,90 +71,30 @@ class GUI:
         white_same = self.make_white(same_img)
 
         # Update your ctkImage references
-        self.different_storage_image = ctk.CTkImage(
-            light_image=white_diff,
-            dark_image=white_diff,
-            size=(20, 20)
-        )
-        self.same_storage_image = ctk.CTkImage(
-            light_image=white_same,
-            dark_image=white_same,
-            size=(20, 20)
-        )
+        self.different_storage_image = ctk.CTkImage(light_image=white_diff, dark_image=white_diff, size=(20, 20))
+        self.same_storage_image = ctk.CTkImage(light_image=white_same, dark_image=white_same, size=(20, 20))
 
     def createButtons(self):
         DT_frame = ctk.CTkFrame(self.root, fg_color=self.box_color, corner_radius=10, width=100, height=100)
         DT_frame.pack_propagate(False)
 
-        ctk.CTkLabel(
-            DT_frame,
-            text="Logs",
-            font=("Arial", 16, "bold"),
-            fg_color="transparent",
-            text_color=self.title_color
-        ).pack(pady=(10, 0))
+        ctk.CTkLabel(DT_frame, text="Logs", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 0))
 
-        timeBasedDTButton = ctk.CTkButton(
-            DT_frame,
-            fg_color=self.bg_color,
-            hover_color=self.border_color,
-            text="Time based DT",
-            command=lambda : self.system.stopSystem(),
-            width=120,
-            height=35
-        )
+        timeBasedDTButton = ctk.CTkButton(DT_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Time based DT", command=lambda: self.system.stopSystem(), width=120, height=35)
         timeBasedDTButton.pack(pady=(10, 10))
 
-        visionBasedDTButton = ctk.CTkButton(
-            DT_frame,
-            fg_color=self.bg_color,
-            hover_color=self.border_color,
-            text="Vision based DT",
-            command=lambda : self.system.stopSystem(),
-            width=120,
-            height=35
-        )
+        visionBasedDTButton = ctk.CTkButton(DT_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Vision based DT", command=lambda: self.system.stopSystem(), width=120, height=35)
         visionBasedDTButton.pack(pady=(10, 10))
 
-        noDTButton = ctk.CTkButton(
-            DT_frame,
-            fg_color=self.bg_color,
-            hover_color=self.border_color,
-            text="No DT",
-            command=lambda : self.system.stopSystem(),
-            width=120,
-            height=35
-        )
+        noDTButton = ctk.CTkButton(DT_frame, fg_color=self.bg_color, hover_color=self.border_color, text="No DT", command=lambda: self.system.stopSystem(), width=120, height=35)
         noDTButton.pack(pady=(10, 10))
 
-        ctk.CTkLabel(
-            DT_frame,
-            text="Turn on/off system",
-            font=("Arial", 16, "bold"),
-            fg_color="transparent",
-            text_color=self.title_color
-        ).pack()
+        ctk.CTkLabel(DT_frame, text="Turn on/off system", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack()
 
-        startButton = ctk.CTkButton(
-            DT_frame,
-            fg_color="green",
-            hover_color=self.border_color,
-            text="Vision based DT",
-            command=lambda : self.system.stopSystem(),
-            width=120,
-            height=35
-        )
+        startButton = ctk.CTkButton(DT_frame, fg_color="green", hover_color=self.border_color, text="Vision based DT", command=lambda: self.system.stopSystem(), width=120, height=35)
         startButton.pack(pady=(10, 10))
 
-        exitButton = ctk.CTkButton(
-            DT_frame,
-            fg_color="#880015",
-            hover_color=self.border_color,
-            text="Shut down system",
-            command=lambda : self.system.stopSystem(),
-            width=120,
-            height=35
-        )
+        exitButton = ctk.CTkButton(DT_frame, fg_color="#880015", hover_color=self.border_color, text="Shut down system", command=lambda: self.system.stopSystem(), width=120, height=35)
         exitButton.pack(pady=(10, 10))
         DT_frame.grid(row=1, column=2, sticky="news", padx=15, pady=15)
 
@@ -163,13 +102,7 @@ class GUI:
         log_frame = ctk.CTkFrame(self.root, fg_color=self.box_color, corner_radius=10)
         # log_frame.pack_propagate(False)
 
-        ctk.CTkLabel(
-            log_frame,
-            text="Logs",
-            font=("Arial", 16, "bold"),
-            fg_color="transparent",
-            text_color=self.title_color
-        ).pack(pady=(10, 10))
+        ctk.CTkLabel(log_frame, text="Logs", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 10))
         log_frame.grid(row=1, column=3, sticky="news", padx=15, pady=15)
 
     # Function to "color" a black icon to white
@@ -183,18 +116,12 @@ class GUI:
         stack_frame.pack_propagate(False)
 
         newTitle = ""
-        if (title == "In_Transit"):
+        if title == "In_Transit":
             newTitle = "In Transit"
         else:
             newTitle = f"{title[:-2]} {title[-1]}"
 
-        ctk.CTkLabel(
-            stack_frame,
-            text=newTitle,
-            font=("Arial", 16, "bold"),
-            fg_color=color,
-            text_color=self.title_color
-        ).pack(pady=(10, 10))
+        ctk.CTkLabel(stack_frame, text=newTitle, font=("Arial", 16, "bold"), fg_color=color, text_color=self.title_color).pack(pady=(10, 10))
 
         # Add a container for the object buttons
         stack_frame.object_container = ctk.CTkFrame(stack_frame, fg_color="transparent")
@@ -211,13 +138,7 @@ class GUI:
         # Add current objects
         for obj in self.storageObjects:
             if obj.position == title:
-                row_frame = ctk.CTkFrame(
-                    stack_frame.object_container,
-                    fg_color=self.box_color,
-                    border_color=self.border_color,
-                    border_width=2,
-                    corner_radius=5
-                )
+                row_frame = ctk.CTkFrame(stack_frame.object_container, fg_color=self.box_color, border_color=self.border_color, border_width=2, corner_radius=5)
                 row_frame.pack(fill="x", padx=10, pady=6)
 
                 row_frame.grid_columnconfigure(0, weight=70)
@@ -226,20 +147,14 @@ class GUI:
                 row_frame.grid_columnconfigure(3, weight=0)
                 row_frame.grid_columnconfigure(4, weight=15)
 
-                ctk.CTkLabel(
-                    row_frame,
-                    text=obj.name,
-                    font=("Arial", 16, "bold"),
-                    text_color=self.text_color
-                ).grid(row=0, column=0, pady=6)
+                ctk.CTkLabel(row_frame, text=obj.name, font=("Arial", 16, "bold"), text_color=self.text_color).grid(row=0, column=0, pady=6)
 
                 for j in range(1, 4, 2):
                     separator = ctk.CTkFrame(row_frame, fg_color=self.border_color, height=35, width=2)
                     separator.grid(row=0, column=j, pady=5)
 
                 for j in range(2, 5, 2):
-                    destination = "Storage_0" if obj.position == "Storage_1" and j == 4 else \
-                                  "Storage_1" if obj.position == "Storage_0" and j == 4 else obj.position
+                    destination = "Storage_0" if obj.position == "Storage_1" and j == 4 else "Storage_1" if obj.position == "Storage_0" and j == 4 else obj.position
                     params = [obj.name, destination]
                     btn = ctk.CTkButton(
                         row_frame,
@@ -249,7 +164,7 @@ class GUI:
                         image=self.same_storage_image if j == 2 else self.different_storage_image,
                         width=20,
                         height=20,
-                        command=lambda p=params: self.clicked(p)
+                        command=lambda p=params: self.clicked(p),
                     )
                     btn.grid(row=0, column=j)
 
@@ -277,6 +192,5 @@ class GUI:
         self.root.after(500, self.updateStorageObjects)
 
     def clicked(self, params):
-        # self.system.moveObject(*params)
+        # self.system.move_object(*params)
         pass
-

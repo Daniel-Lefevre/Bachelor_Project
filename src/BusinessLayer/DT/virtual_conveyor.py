@@ -1,13 +1,13 @@
 class VirtualConveyor:
-    def __init__(self, id):
+    def __init__(self, id: int):
         self.id = id
         self.running = True
 
-    def start(self):
+    def start(self) -> None:
         self.running = True
 
-    def stop(self):
+    def stop(self) -> None:
         self.running = False
 
-    def getInfo(self):
+    def get_info(self) -> bool:
         return self.running
