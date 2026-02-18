@@ -12,6 +12,6 @@ if __name__ == "__main__":
     IPs = configuration["ips"]
     positions = configuration["positions"]
     system = System(IPs, positions)
-    t = threading.Thread(target=system.Setup, daemon=True)
-    t.start()
+    # t = threading.Thread(target=system.Setup, daemon=True)
+    # t.start()
     gui = GUI(system)
