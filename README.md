@@ -8,3 +8,6 @@ https://docs.google.com/spreadsheets/d/1Zpuhi13NQvuIfRxC9UdOiqnWY_iOfHch5isNjrXS
 
 ###  **Project Notes**
 https://docs.google.com/document/d/1T-WWYX9KqtfHGER0PO_sFUBXoYqzswZ6ThZjRrAKvsA/edit?usp=sharing
+
+### **Drawings**
+https://drive.google.com/file/d/1xx9qzL80M35pHLFEnVWRHDTKTx0Pse91/view?usp=sharing
