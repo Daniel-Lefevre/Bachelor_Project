@@ -205,13 +205,12 @@ class RobotArm:
                 self.startConveyorbelt()
                 if (self.checkIR()):
                     self.IR = True
-                    self.stopConveyorbelt()
-                    time.sleep(0.5)
                     self.addToQueue(configuration["PickFromIRSensorPriority"], "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
                 else:
                     self.IR = False
             else:
                 self.stopConveyorbelt()
+                time.sleep(0.5)
                 _, (workarea, shape, color) = self.queue.get()
                 self.objectUpdates.append((shape, color, "In_Transit"))
 
