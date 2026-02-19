@@ -84,3 +84,14 @@ class TimeBasedDT:
         # Set the rules on the virtual robot arms
         for i in range(len(self.virtual_robots)):
             self.virtual_robots[i].set_rules(rules[i])
+
+    def get_info_dt(self) -> dict[str, list]:
+        info = {"robots": [], "objects": []}
+
+        for robot in self.virtual_robots:
+            info["robots"].append(robot.get_info())
+
+        for obj in self.virtual_objects:
+            info["objects"].append(obj.get_info())
+
+        return info

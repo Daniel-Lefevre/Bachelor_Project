@@ -7,6 +7,7 @@ from resources.PriorityQueue import CustomPriorityQueue
 from src.BusinessLayer.DT.states import create_robot_states
 
 if TYPE_CHECKING:
+    from src.BusinessLayer.DT.states import RobotStates
     from src.BusinessLayer.DT.virtual_conveyor import VirtualConveyor
     from src.BusinessLayer.DT.virtual_object import VirtualObject
 
@@ -85,3 +86,6 @@ class VirtualRobot:
         self.current_state_progress_goal = self.state.time
 
         return (destination, placed_position)
+
+    def get_info(self) -> tuple[RobotStates, float]:
+        return (self.state, self.current_state_progress / self.current_state_progress_goal if self.current_state_progress_goal != float("inf") else float("inf"))

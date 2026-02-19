@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 
 import keyboard
 
-from BusinessLayer.DT.dt_runner import DTRunner
 from resources.environment import StorageObject, configuration
+from src.BusinessLayer.DT.dt_runner import DTRunner
 from src.BusinessLayer.robot import RobotArm
 
 if TYPE_CHECKING:
@@ -192,3 +192,6 @@ class System:
                     has_received_false[id] = True
 
             time.sleep(0.1)
+
+    def get_info_dt(self) -> dict[str, list]:
+        return self.DT.get_info_dt()

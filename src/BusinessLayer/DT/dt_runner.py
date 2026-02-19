@@ -4,7 +4,7 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-from BusinessLayer.DT.TimeBasedDT.time_based_dt import TimeBasedDT
+from src.BusinessLayer.DT.TimeBasedDT.time_based_dt import TimeBasedDT
 
 if TYPE_CHECKING:
     from resources.environment import StorageObject
@@ -42,3 +42,6 @@ class DTRunner:
                 self.dt_model.step()
             current_time = time.time()
             time.sleep(self.step_size - (current_time - interval_start))
+
+    def get_info_dt(self) -> dict[str, list]:
+        return self.dt_model.get_info_dt()

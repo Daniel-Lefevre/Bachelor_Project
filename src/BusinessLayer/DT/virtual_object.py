@@ -7,6 +7,8 @@ from src.BusinessLayer.DT.states import ObjectStates
 if TYPE_CHECKING:
     from pyniryo import ObjectColor, ObjectShape
 
+    from src.BusinessLayer.DT.states import ObjectState
+
 
 class VirtualObject:
     def __init__(self, shape: ObjectShape, color: ObjectColor, step_size: int, starting_storage_id: int):
@@ -48,3 +50,6 @@ class VirtualObject:
         # Increment time if conveyor belt is running
         if conveyor_running:
             self.current_state_progress += self.step_size
+
+    def get_info(self) -> tuple[ObjectState, float]:
+        return (self.state, self.current_state_progress / self.current_state_progress_goal if self.current_state_progress_goal != float("inf") else float("inf"))
