@@ -27,7 +27,7 @@ class System:
             id_value = i
             ip_address = ips[i]
             poses = positions[i]
-            self.robot_arms.append(RobotArm(ip_address, poses, id_value))
+            self.robot_arms.append(RobotArm(ip_address, poses, id_value, configuration["StorageOccupancy"][id_value]))
 
     def stop_system(self) -> None:
         print("STOP")

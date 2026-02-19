@@ -2,7 +2,7 @@ import tkinter as tk
 from dataclasses import dataclass
 from math import atan2, cos, pi, sin
 from types import SimpleNamespace
-from typing import Any, List, Literal
+from typing import Any, List
 
 from pyniryo import ObjectColor, ObjectShape
 
@@ -12,8 +12,8 @@ from src.BusinessLayer.DT.states import ObjectState, ObjectStates
 @dataclass
 class AnimationObject:
     name: str
-    shape: Literal[ObjectShape.CIRCLE, ObjectShape.SQUARE]
-    color: Literal[ObjectColor.RED, ObjectColor.BLUE, ObjectColor.GREEN]
+    shape: ObjectShape
+    color: ObjectColor
     state: ObjectState
     storage_position: List[int]
     canvas_ref: Any = None

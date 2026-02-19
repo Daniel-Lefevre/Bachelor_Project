@@ -7,8 +7,8 @@ from pyniryo import ObjectColor, ObjectShape
 @dataclass
 class StorageObject:
     name: str
-    shape: Literal[ObjectShape.CIRCLE, ObjectShape.SQUARE]
-    color: Literal[ObjectColor.RED, ObjectColor.BLUE, ObjectColor.GREEN]
+    shape: ObjectShape
+    color: ObjectColor
     position: Literal["Storage_1", "In_Transit", "Storage_0"]
 
 
@@ -48,6 +48,10 @@ configuration = {
         StorageObject("Blue Circle", ObjectShape.CIRCLE, ObjectColor.BLUE, "Storage_1"),
         StorageObject("Green Circle", ObjectShape.CIRCLE, ObjectColor.GREEN, "Storage_0"),
     ],
+    "StorageOccupancy": [
+        [(ObjectShape.SQUARE, ObjectColor.BLUE), (ObjectShape.CIRCLE, ObjectColor.RED), (ObjectShape.CIRCLE, ObjectColor.GREEN), None],
+        [(ObjectShape.SQUARE, ObjectColor.RED), (ObjectShape.SQUARE, ObjectColor.GREEN), (ObjectShape.CIRCLE, ObjectColor.BLUE), None],
+    ],
     # Camera configurations found using experiments
     "brightness": [[1.24816061, 1.32431245], [1.28829838, 1.42241655]],
     "contrast": [[1.01757065, 1.02363494], [1.02113107, 1.01575003]],
@@ -71,6 +75,20 @@ configuration = {
         "Robot_1_Conveyor_to_Observation": 4.4,
         "Robot_1_Storage_to_Observation": 5.0,
     },
+    "storagePositions": [
+        [
+            [-0.06205056905277242, -0.19256394859795326, 0.057984999202619444, 1.770515246141111, 1.548892970661883, -1.4110397860855048],
+            [0.005508972910148029, -0.19919787963968721, 0.05732826415965928, 2.6028315915415394, 1.558259000508785, -0.6029308938909559],
+            [-0.0673181900989941, -0.25935795259543687, 0.056629867433290425, 2.716193629686612, 1.5455437127533735, -0.7021146089214897],
+            [0.0007075202392178714, -0.2599278711928543, 0.056952659324702594, 2.2527964034233254, 1.5296351721639505, -0.9329650414391197],
+        ],
+        [
+            [-0.00282078630144435, 0.19717361034206676, 0.06299425747143081, -2.539337643624458, 1.5674382910114895, 3.0487939997302145],
+            [-0.07824856778361586, 0.19160351414658516, 0.05385308002668253, -2.3876118714603307, 1.553386806421733, -2.8703027663285465],
+            [-0.007873883105455861, 0.2633992356019009, 0.05557682514481014, 3.100216674723426, 1.4980368823362151, 2.2528459022634792],
+            [-0.0792910869080455, 0.2581088096320052, 0.051502537161709855, -2.2332863270209296, 1.5054596853471967, -2.829187564225824],
+        ],
+    ],
     "positions": [
         # Robot_0's positions
         [
@@ -82,14 +100,6 @@ configuration = {
                 1.4919714064477891,
                 -0.011501923089995283,
             ],  # PlaceConveyor
-            [
-                -0.06454724202416068,
-                -0.25841679055839906,
-                0.07169377341193187,
-                -0.5973192719933085,
-                1.4841716980991895,
-                2.5321741288187907,
-            ],  # PlaceStorage
             [
                 0.2762497323855258,
                 -0.0758582449018067,
@@ -117,14 +127,6 @@ configuration = {
                 1.524596107925453,
                 2.2656189128608912,
             ],  # PlaceConveyor
-            [
-                -0.0017103279953780066,
-                0.2629236782267381,
-                0.07237643418601386,
-                0.6202080849782293,
-                1.5623164426206442,
-                2.26682857594807,
-            ],  # PlaceStorage
             [
                 0.28652238179577555,
                 -0.07686871280532333,

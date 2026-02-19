@@ -11,7 +11,7 @@ from resources.environment import configuration
 
 
 class RobotArm:
-    def __init__(self, ip: str, positions: list[float], id: int):
+    def __init__(self, ip: str, positions: list[float], id: int, initial_object_positions: list):
         self.ip = ip
         self.robot = NiryoRobot(ip)
         self.ID = id
@@ -21,7 +21,9 @@ class RobotArm:
         self.storage_workspace = f"Storage_workspace_{self.ID}"
         self.safe_position = [0.0, 0.0, 0.0, 0.0, -1.57, 0.0]
         self.conveyor_speed = 75
-        self.place_conveyor, self.place_storage, self.observation_pose_conveyor, self.observation_pose_storage = positions
+        self.place_conveyor, self.observation_pose_conveyor, self.observation_pose_storage = positions
+        self.place_storage = configuration["storagePositions"][self.ID]
+        self.occupied_storage = initial_object_positions
         self.conveyor_id = self.robot.set_conveyor()
         self.brightness_level_conveyor = configuration["brightness"][self.ID][0]
         self.contrast_level_conveyor = configuration["contrast"][self.ID][0]
@@ -116,6 +118,7 @@ class RobotArm:
         new_pose[2] = target_pose.z
         return PoseObject(*new_pose)
 
+    #
     def _grasp_with_tool(self) -> None:
         self.robot._grasp_with_tool()
 
@@ -130,7 +133,7 @@ class RobotArm:
                 target_pose.x += 0
                 target_pose.y -= 0.011
             elif self.ID == 1:
-                target_pose.x += 0.006
+                target_pose.x += 0
                 target_pose.y += 0
                 target_pose.z += 0.013
         elif workspace == self.conveyor_workspace:
@@ -173,13 +176,24 @@ class RobotArm:
                     return
 
                 if area == "Storage":
-                    destination = self.place_storage
-                    final_destination = True
+                    for i in range(len(self.occupied_storage)):
+                        if self.occupied_storage[i] is None:
+                            destination = self.place_storage[i]
+                            print(i, destination)
+                            final_destination = True
+                            self.occupied_storage[i] = (shape_ret, color_ret)
+                            break
+                        elif i == len(self.occupied_storage) - 1:
+                            print("Anomoly 11")
                 elif area == "Conveyor":
                     destination = self.place_conveyor
                 else:
                     print(f"Unknown area, {area}")
                     return
+            else:
+                for i in range(len(self.occupied_storage)):
+                    if self.occupied_storage[i] is not None and self.occupied_storage[i][0] == shape and self.occupied_storage[i][1] == color:
+                        self.occupied_storage[i] = None
 
             x, y, object_yaw = object_pose
 
@@ -187,6 +201,7 @@ class RobotArm:
             corrected_target_pose = self._correct_robot_offset(target_pose, workspace)
 
             if corrected_target_pose:
+                print(corrected_target_pose)
                 self.robot.pick_from_pose(corrected_target_pose)
                 self._pick_and_place(destination, final_destination, shape_ret, color_ret, workspace)
 
