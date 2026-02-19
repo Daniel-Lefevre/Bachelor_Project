@@ -39,22 +39,22 @@ class System:
 
         self.threads = []
 
-        t_ir = threading.Thread(target=self.ir_listener)
+        t_ir = threading.Thread(target=self._ir_listener)
         self.threads.append(t_ir)
         t_ir.start()
 
         for arm in self.robot_arms:
-            t = threading.Thread(target=self.robot_worker, args=(arm,))
+            t = threading.Thread(target=self._robot_worker, args=(arm,))
             self.threads.append(t)
             t.start()
 
-        t_anomaly = threading.Thread(target=self.anomaly_listener)
+        t_anomaly = threading.Thread(target=self._anomaly_listener)
         self.threads.append(t_anomaly)
         t_anomaly.start()
 
-        self.startup_robots_loop()
+        self._startup_robots_loop()
 
-    def robot_worker(self, arm: RobotArm) -> None:
+    def _robot_worker(self, arm: RobotArm) -> None:
         # set up Phase
         print(f"Robot {arm.ID} is initializing")
         arm.set_up()
@@ -69,7 +69,7 @@ class System:
         arm.disconnect()
         print("Everything has been shut down")
 
-    def startup_robots_loop(self) -> None:
+    def _startup_robots_loop(self) -> None:
         while self.running:
             # Robot 0 take image
             if keyboard.is_pressed("9"):
@@ -87,7 +87,7 @@ class System:
         for t in self.threads:
             t.join()
 
-    def update_object(self, shape: ObjectShape, color: ObjectColor, position: str) -> None:
+    def _update_object(self, shape: ObjectShape, color: ObjectColor, position: str) -> None:
         with self.lock:
             for i in range(len(self.storage_objects)):
                 obj = self.storage_objects[i]
@@ -98,32 +98,32 @@ class System:
         # Retrieve updates from the robot arms
         for arm in self.robot_arms:
             for update in arm.get_object_updates():
-                self.update_object(*update)
+                self._update_object(*update)
 
         return self.storage_objects
 
-    def find_object_by_name(self, object_name: str) -> StorageObject:
+    def _find_object_by_name(self, object_name: str) -> StorageObject:
         for object in self.storage_objects:
             if object.name == object_name:
                 return object
 
     def move_object(self, name: str, destination: str) -> None:
         with self.lock:
-            obj = self.find_object_by_name(name)
+            obj = self._find_object_by_name(name)
 
             self.DT.create_event(("Pick Up", obj))
 
             # Tell to pick up from storage
             self.robot_arms[int(obj.position[-1])].add_to_queue(configuration["PickFromStoragePriority"], "Storage", obj.shape, obj.color)
 
-            rules = self.make_rule_from_event(obj, destination)
+            rules = self._make_rule_from_event(obj, destination)
 
             for i in range(len(self.robot_arms)):
                 self.robot_arms[i].set_rules(rules[i])
 
             self.DT.set_rules(rules)
 
-    def make_rule_from_event(self, object: StorageObject, destination: str) -> list[dict]:
+    def _make_rule_from_event(self, object: StorageObject, destination: str) -> list[dict]:
         rules = [{}, {}]
         # Move to different storage
         storage_id = int(object.position[-1])
@@ -138,7 +138,7 @@ class System:
 
         return rules
 
-    def anomaly_listener(self) -> None:
+    def _anomaly_listener(self) -> None:
         while self.running:
             for robot_arm in self.robot_arms:
                 messages = robot_arm.get_anomaly_updates()
@@ -148,11 +148,11 @@ class System:
                         print("Human Intervention Required")
                     elif message[0] == "Anomaly 5":
                         id_value, shape, color = message[1]
-                        self.anomaly_5_mitigation(id_value, shape, color)
+                        self._anomaly_5_mitigation(id_value, shape, color)
 
             time.sleep(0.1)
 
-    def anomaly_5_mitigation(self, robot_id_arrival: int, shape: ObjectShape, color: ObjectColor) -> None:
+    def _anomaly_5_mitigation(self, robot_id_arrival: int, shape: ObjectShape, color: ObjectColor) -> None:
         print(f"ID: {robot_id_arrival}")
         goal_storage_id = None
         for storage_object in self.storage_objects:
@@ -178,7 +178,7 @@ class System:
             self.robot_arms[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", shape, color)
             self.robot_arms[robot_id_arrival].set_mitigation_mode(False)
 
-    def ir_listener(self) -> None:
+    def _ir_listener(self) -> None:
         has_received_false = [False, False]
         while self.running:
             for id in range(len(self.robot_arms)):
