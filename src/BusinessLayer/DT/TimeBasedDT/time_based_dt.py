@@ -52,10 +52,10 @@ class TimeBasedDT:
                 working_objects_info.append((working_object, pick_up_destination, placed_position))
 
         for virtual_obj in self.virtual_objects:
-            if virtual_obj.color == ObjectColor.BLUE and virtual_obj.shape == ObjectShape.CIRCLE:
-                print(f"Blue Circle: {virtual_obj.state.key}")
-            if virtual_obj.color == ObjectColor.RED and virtual_obj.shape == ObjectShape.CIRCLE:
-                print(f"Red Cirlce: {virtual_obj.state.key}")
+            # if virtual_obj.color == ObjectColor.BLUE and virtual_obj.shape == ObjectShape.CIRCLE:
+            # print(f"Blue Circle: {virtual_obj.state.key}")
+            # if virtual_obj.color == ObjectColor.RED and virtual_obj.shape == ObjectShape.CIRCLE:
+            # print(f"Red Cirlce: {virtual_obj.state.key}")
             pick_up_destination = None
             placed_position = None
             for info in working_objects_info:
@@ -67,11 +67,11 @@ class TimeBasedDT:
             conveyor_running = self.virtual_conveyors[ID].get_info()
             virtual_obj.step(pick_up_destination, placed_position, conveyor_running, conveyor_id_to_be_left)
             # Check if virtual object has reached in IR sensor
-            if virtual_obj.hasReachedIR:
+            if virtual_obj.has_reached_ir:
                 self.virtual_robots[ID].add_to_queue(configuration["PickFromIRSensorPriority"], virtual_obj)
-                virtual_obj.hasReachedIR = False
+                virtual_obj.has_reached_ir = False
 
-        print("-------------------")
+        # print("-------------------")
 
     def create_event(self, event: tuple[str, int | StorageObject]) -> None:
         eventype, event_param = event

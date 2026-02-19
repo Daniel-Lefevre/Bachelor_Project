@@ -33,7 +33,7 @@ class VirtualRobot:
 
     def step(self) -> tuple[VirtualObject | None, str | None, Literal["Conveyor", "Storage"] | None]:
         if self.state.key == "Observation" and not self.queue.empty():
-            _, self.working_object = self.queue.get()
+            self.working_object = self.queue.get()
             destination = "Conveyor" if self.working_object.state.origin == "IR" else self.working_object.state.origin
             self.state = self.states[f"Observation_to_{destination}"]
             self.current_state_progress_goal = self.state.time

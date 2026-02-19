@@ -7,7 +7,7 @@ from src.PresentationLayer.Animation import *
 class GUI:
     def __init__(self, system):
         self.system = system
-        self.storageObjects = system.getObjects()
+        self.storageObjects = system.get_objects()
 
         self.loadImages()
 
@@ -80,21 +80,21 @@ class GUI:
 
         ctk.CTkLabel(DT_frame, text="Logs", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 0))
 
-        timeBasedDTButton = ctk.CTkButton(DT_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Time based DT", command=lambda: self.system.stopSystem(), width=120, height=35)
+        timeBasedDTButton = ctk.CTkButton(DT_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Time based DT", command=lambda: self.system.stop_system(), width=120, height=35)
         timeBasedDTButton.pack(pady=(10, 10))
 
-        visionBasedDTButton = ctk.CTkButton(DT_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Vision based DT", command=lambda: self.system.stopSystem(), width=120, height=35)
+        visionBasedDTButton = ctk.CTkButton(DT_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Vision based DT", command=lambda: self.system.stop_system(), width=120, height=35)
         visionBasedDTButton.pack(pady=(10, 10))
 
-        noDTButton = ctk.CTkButton(DT_frame, fg_color=self.bg_color, hover_color=self.border_color, text="No DT", command=lambda: self.system.stopSystem(), width=120, height=35)
+        noDTButton = ctk.CTkButton(DT_frame, fg_color=self.bg_color, hover_color=self.border_color, text="No DT", command=lambda: self.system.stop_system(), width=120, height=35)
         noDTButton.pack(pady=(10, 10))
 
         ctk.CTkLabel(DT_frame, text="Turn on/off system", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack()
 
-        startButton = ctk.CTkButton(DT_frame, fg_color="green", hover_color=self.border_color, text="Vision based DT", command=lambda: self.system.stopSystem(), width=120, height=35)
+        startButton = ctk.CTkButton(DT_frame, fg_color="green", hover_color=self.border_color, text="Vision based DT", command=lambda: self.system.stop_system(), width=120, height=35)
         startButton.pack(pady=(10, 10))
 
-        exitButton = ctk.CTkButton(DT_frame, fg_color="#880015", hover_color=self.border_color, text="Shut down system", command=lambda: self.system.stopSystem(), width=120, height=35)
+        exitButton = ctk.CTkButton(DT_frame, fg_color="#880015", hover_color=self.border_color, text="Shut down system", command=lambda: self.system.stop_system(), width=120, height=35)
         exitButton.pack(pady=(10, 10))
         DT_frame.grid(row=1, column=2, sticky="news", padx=15, pady=15)
 
@@ -170,7 +170,7 @@ class GUI:
 
     def updateStorageObjects(self):
         # Refresh object list
-        self.storageObjects = self.system.getObjects()
+        self.storageObjects = self.system.get_objects()
 
         # Update each stack
         for label in self.labels:
@@ -192,5 +192,4 @@ class GUI:
         self.root.after(500, self.updateStorageObjects)
 
     def clicked(self, params):
-        # self.system.move_object(*params)
-        pass
+        self.system.move_object(*params)

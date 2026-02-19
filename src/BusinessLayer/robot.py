@@ -36,7 +36,7 @@ class RobotArm:
         self.rules = {}
         self.lock = threading.Lock()
         self.mitigation_mode = False
-        self.pick_and_place_first_try = False
+        self.pick_and_place_first_try = True
 
     def get_ir(self) -> bool:
         return self.IR
@@ -44,7 +44,7 @@ class RobotArm:
     def _start_conveyorbelt(self) -> None:
         self.robot.run_conveyor(self.conveyor_id, speed=self.conveyor_speed, direction=ConveyorDirection.BACKWARD)
 
-    def _set_mitigation_mode(self, value) -> None:
+    def set_mitigation_mode(self, value) -> None:
         self.mitigation_mode = value
 
     def get_rules(self) -> dict:
@@ -145,7 +145,7 @@ class RobotArm:
         return target_pose
 
     def _release_with_tool(self) -> None:
-        self.robot._release_with_tool()
+        self.robot.release_with_tool()
 
     def _find_and_move_object(self, workspace: str, shape: ObjectShape, color: ObjectColor, destination: list[float] | None) -> None:
         # Try to detect the object 10 times
@@ -168,7 +168,7 @@ class RobotArm:
                 if area is None:
                     # The wrong object is on the conveyor belt, cast anomaly 5
                     print(f"{configuration['Anomalies'][5]}")
-                    self._set_mitigation_mode(True)
+                    self.set_mitigation_mode(True)
                     self.anomaly_updates.append(("Anomaly 5", (self.ID, shape_ret, color_ret)))
                     return
 
@@ -254,7 +254,7 @@ class RobotArm:
         self.robot.update_tool()
 
         # Release the vacuum
-        self.robot._release_with_tool()
+        self._release_with_tool()
         print(f"Done with setup ID: {self.ID}")
 
         # Calibrate the robot if needed
@@ -291,18 +291,19 @@ class RobotArm:
 
         if self._check_ir():
             if self.pick_and_place_first_try:
+                self.pick_and_place_first_try = False
                 # Robot arm has failed to pickup object from the conveyor, cast anomaly 4
                 print(f"{configuration['Anomalies'][4]}")
-                self.robot._release_with_tool()
+                self._release_with_tool()
                 self._find_and_move_object(workspace, shape, color, None)
-                self.pick_and_place_first_try = False
                 return
             else:
                 print(f"Mitigation for {configuration['Anomalies'][4]} failed. Human intervention required")
                 self.anomaly_updates.append(("Stop System",))
                 return
 
-        self.rules.pop((shape, color), None)
+        if workspace == "Conveyor":
+            self.rules.pop((shape, color), None)
 
         self.pick_and_place_first_try = True
         self._place_and_release(destination)

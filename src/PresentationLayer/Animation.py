@@ -1,9 +1,11 @@
 import tkinter as tk
-from typing import Literal, List, Any
-from pyniryo import ObjectColor, ObjectShape
 from dataclasses import dataclass
-from src.BusinessLayer.DT.States import ObjectStates, ObjectState
-from math import atan2, cos, sin, pi
+from math import atan2, cos, pi, sin
+from typing import Any, List, Literal
+
+from pyniryo import ObjectColor, ObjectShape
+
+from src.BusinessLayer.DT.states import ObjectState, ObjectStates
 
 
 @dataclass
@@ -17,7 +19,6 @@ class AnimationObject:
 
 
 class Animation:
-
     def __init__(self, root, objects, stepSize=0.1):
         self.storagePosDict = {
             "Red Square": [125, 550, 175, 600],
@@ -39,19 +40,9 @@ class Animation:
 
         self.robotPositions = [
             # Robot 0's positions
-            {
-                "storage": [150, 500],
-                "place": [450, 175],
-                "ir": [],
-                "observation": []
-            },
+            {"storage": [150, 500], "place": [450, 175], "ir": [], "observation": []},
             # Robot 1's positions
-            {
-                "storage": [],
-                "place": [],
-                "ir": [],
-                "observation": []
-            }
+            {"storage": [], "place": [], "ir": [], "observation": []},
         ]
 
         self.createConveyors()
@@ -92,12 +83,12 @@ class Animation:
         cy = (y1 + y2) / 2
         x0, y0 = self.robot0_base
         y_diff = cy - y0
-        x_diff =  cx - x0
-        slope = y_diff / x_diff if x_diff != 0 else float('inf')
-        orth_slope = - 1 / slope if slope != float('inf') else 0
+        x_diff = cx - x0
+        slope = y_diff / x_diff if x_diff != 0 else float("inf")
+        orth_slope = -1 / slope if slope != float("inf") else 0
         angle = atan2(1, orth_slope)
         point1 = (cos(angle), sin(angle))
-        point2 = (cos(angle+pi), sin(angle+pi))
+        point2 = (cos(angle + pi), sin(angle + pi))
         point1 = [point1[0] * 20 + cx, point1[1] * 20 + cy]
         point2 = [point2[0] * 20 + cx, point2[1] * 20 + cy]
         point3 = [point2[0] - x_diff, point2[1] - y_diff]
