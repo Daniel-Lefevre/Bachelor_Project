@@ -30,7 +30,6 @@ class DTRunner:
         with self.lock:
             self.dt_model.create_event(event)
 
-    # Not used?
     def stop_dt(self) -> None:
         self.running = False
         self.simulate_thread.join()

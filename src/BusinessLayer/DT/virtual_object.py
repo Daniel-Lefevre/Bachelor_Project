@@ -21,6 +21,12 @@ class VirtualObject:
         self.step_size = step_size
         self.has_reached_ir = False
 
+    def is_at_drop_off(self, conveyor_id: int) -> bool:
+        if self.state.key == f"Conveyor_{conveyor_id}":
+            return self.current_state_progress / self.current_state_progress_goal < 1 / 5
+        else:
+            return False
+
     def step(self, pick_up_destination: str | None, placed_position: str | None, conveyor_running: bool, conveyor_id_to_be_left: int | None):
         if pick_up_destination:
             origin = "Conveyor" if self.state.origin == "IR" else "Storage"
@@ -39,17 +45,23 @@ class VirtualObject:
         elif conveyor_id_to_be_left is not None and self.state.origin == "Conveyor" and self.state.id == conveyor_id_to_be_left:
             # Check that the object has arrived to early
             if self.current_state_progress_goal - self.current_state_progress > 1.0:
-                print("BIG IMPORTANT ERROR: SOMETHING UNEXPECTED IN IR (ARRIVED TOO EARLY)")
+                print("Either anomaly 2 or 7 has occured")
+            elif self.current_state_progress_goal - self.current_state_progress < -1.0:
+                print("Either anomaly 1 or 7 has occured")
+
             self.state = self.states[f"IR_{self.state.id}"]
             self.current_state_progress_goal = float("inf")
             self.current_state_progress = 0
             self.has_reached_ir = True
         elif self.current_state_progress_goal - self.current_state_progress < -1.0:
-            print("BIG IMPORTANT ERROR: SOMETHING MISSING IN IR (ARRIVED TOO LATE)")
+            print("Either anomaly 1, 3, 7, 8, 9 or 10 has occured")
 
         # Increment time if conveyor belt is running
         if conveyor_running:
             self.current_state_progress += self.step_size
+
+    def set_state(self, state: str):
+        self.state = self.states[state]
 
     def get_info(self) -> tuple[ObjectState, float]:
         return (self.state, self.current_state_progress / self.current_state_progress_goal if self.current_state_progress_goal != float("inf") else float("inf"))

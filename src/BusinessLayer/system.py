@@ -32,7 +32,7 @@ class System:
     def stop_system(self) -> None:
         print("STOP")
         self.running = False
-        self.DT.running = False
+        self.DT.stop_dt()
 
     def set_up(self) -> None:
         self.DT.start_dt()
@@ -59,6 +59,8 @@ class System:
         print(f"Robot {arm.ID} is initializing")
         arm.set_up()
         print(f"Robot {arm.ID} setup finished")
+
+        # Change DT robots state to next state after setup
 
         # 2. Monitoring Phase
         while self.running:
@@ -143,17 +145,34 @@ class System:
             for robot_arm in self.robot_arms:
                 messages = robot_arm.get_anomaly_updates()
                 for message in messages:
-                    if message[0] == "Stop System":
+                    if message[0] in ["Anomaly 4 Mitigation failed", "Anomaly 14"]:
                         self.stop_system()
                         print("Human Intervention Required")
+                    elif message[0] == "Anomaly 4":
+                        id_value, shape, color = message[1]
+                        self._create_dt_anomaly_event(message[0], id_value, shape, color)
                     elif message[0] == "Anomaly 5":
                         id_value, shape, color = message[1]
+                        self._create_dt_anomaly_event(message[0], id_value, shape, color)
                         self._anomaly_5_mitigation(id_value, shape, color)
+                    elif message[0] == "Anomaly 11":
+                        id_value, shape, color = message[1]
+                        self._create_dt_anomaly_event(message[0], id_value, shape, color)
+                        self._anomaly_11_mitigation(id_value, shape, color)
 
             time.sleep(0.1)
 
+    def _create_dt_anomaly_event(self, eventype: str, robot_id: int = None, shape: ObjectShape = None, color: ObjectColor = None) -> None:
+        event_param = (robot_id, shape, color)
+        self.DT.create_event(eventype, event_param)
+
+    def _anomaly_11_mitigation(self, robot_id_arrival: int, shape: ObjectShape, color: ObjectColor) -> None:
+        self.robot_arms[robot_id_arrival].set_rules({(shape, color): "Conveyor"})
+        self.robot_arms[int(not robot_id_arrival)].set_rules({(shape, color): "Storage"})
+        self.robot_arms[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", shape, color)
+        self.robot_arms[robot_id_arrival].set_mitigation_mode(False)
+
     def _anomaly_5_mitigation(self, robot_id_arrival: int, shape: ObjectShape, color: ObjectColor) -> None:
-        print(f"ID: {robot_id_arrival}")
         goal_storage_id = None
         for storage_object in self.storage_objects:
             if storage_object.shape == shape and storage_object.color == color:
@@ -162,17 +181,14 @@ class System:
                         if self.robot_arms[robot_id].get_rules().get((shape, color)) == "Storage":
                             goal_storage_id = robot_id
                 else:
-                    print("happend")
                     goal_storage_id = int(storage_object.position[-1])
                     print(goal_storage_id)
                 break
         if goal_storage_id == robot_id_arrival:
-            print("TRUE")
             self.robot_arms[robot_id_arrival].set_rules({(shape, color): "Storage"})
             self.robot_arms[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", shape, color)
             self.robot_arms[robot_id_arrival].set_mitigation_mode(False)
         else:
-            print("False")
             self.robot_arms[robot_id_arrival].set_rules({(shape, color): "Conveyor"})
             self.robot_arms[int(not robot_id_arrival)].set_rules({(shape, color): "Storage"})
             self.robot_arms[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", shape, color)

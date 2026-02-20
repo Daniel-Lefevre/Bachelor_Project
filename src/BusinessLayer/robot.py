@@ -116,6 +116,9 @@ class RobotArm:
         difference = workspace_center - pose
         new_pose = workspace_center + difference
         new_pose[2] = target_pose.z
+        new_pose[3] = target_pose.roll
+        new_pose[4] = target_pose.pitch
+        new_pose[5] = target_pose.yaw
         return PoseObject(*new_pose)
 
     #
@@ -133,9 +136,9 @@ class RobotArm:
                 target_pose.x += 0
                 target_pose.y -= 0.011
             elif self.ID == 1:
-                target_pose.x += 0
+                target_pose.x += 0.01
                 target_pose.y += 0
-                target_pose.z += 0.013
+                target_pose.z -= 0.007
         elif workspace == self.conveyor_workspace:
             if self.ID == 0:
                 target_pose.x += 0.0115
@@ -161,7 +164,7 @@ class RobotArm:
         if not obj_found:
             if destination is not None:  # Object is taken from storage
                 print(f"{configuration['Anomalies'][14]}")
-                self.anomaly_updates.append(("Stop System",))
+                self.anomaly_updates.append(("Anomaly 14",))
 
         else:
             print(f"Object found: {shape_ret}, {color_ret}")
@@ -184,7 +187,10 @@ class RobotArm:
                             self.occupied_storage[i] = (shape_ret, color_ret)
                             break
                         elif i == len(self.occupied_storage) - 1:
-                            print("Anomoly 11")
+                            print(f"{configuration['Anomalies'][11]}")
+                            self.set_mitigation_mode(True)
+                            self.anomaly_updates.append(("Anomaly 11", (self.ID, shape_ret, color_ret)))
+                            return
                 elif area == "Conveyor":
                     destination = self.place_conveyor
                 else:
@@ -201,7 +207,6 @@ class RobotArm:
             corrected_target_pose = self._correct_robot_offset(target_pose, workspace)
 
             if corrected_target_pose:
-                print(corrected_target_pose)
                 self.robot.pick_from_pose(corrected_target_pose)
                 self._pick_and_place(destination, final_destination, shape_ret, color_ret, workspace)
 
@@ -297,11 +302,11 @@ class RobotArm:
         self.robot.move_pose(*self.observation_pose_storage)
         self._set_camera_settings("Storage")
 
-    def _place_and_release(self, destination: list[float] | None) -> None:
+    def _place_and_release(self, destination: list[float]) -> None:
         self.robot.move_pose(*destination)
         self._release_with_tool()
 
-    def _pick_and_place(self, destination: list[float] | None, final_destination: bool, shape: ObjectShape, color: ObjectColor, workspace: str) -> None:
+    def _pick_and_place(self, destination: list[float], final_destination: bool, shape: ObjectShape, color: ObjectColor, workspace: str) -> None:
         self._move_to_safe_position()
 
         if self._check_ir():
@@ -309,12 +314,13 @@ class RobotArm:
                 self.pick_and_place_first_try = False
                 # Robot arm has failed to pickup object from the conveyor, cast anomaly 4
                 print(f"{configuration['Anomalies'][4]}")
+                self.anomaly_updates.append(("Anomaly 4",))
                 self._release_with_tool()
                 self._find_and_move_object(workspace, shape, color, None)
                 return
             else:
                 print(f"Mitigation for {configuration['Anomalies'][4]} failed. Human intervention required")
-                self.anomaly_updates.append(("Stop System",))
+                self.anomaly_updates.append(("Anomaly 4 Mitigation failed",))
                 return
 
         if workspace == "Conveyor":

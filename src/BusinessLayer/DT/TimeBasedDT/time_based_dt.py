@@ -30,6 +30,13 @@ class TimeBasedDT:
             if object.shape == shape and object.color == color:
                 return object
 
+    def _check_virtual_objects_drop_off_state(self, conveyor_id: int) -> bool:
+        for virt_obj in self.virtual_objects:
+            if virt_obj.is_at_drop_off(conveyor_id):
+                return True
+
+        return False
+
     def step(self) -> None:
         conveyor_id_to_be_left = None
         # If an event has occured since last step
@@ -40,14 +47,26 @@ class TimeBasedDT:
                 self.virtual_robots[robot_id].add_to_queue(configuration["PickFromStoragePriority"], self._find_virtual_object(event_param.shape, event_param.color))
             elif event_type == "IR":
                 conveyor_id_to_be_left = event_param
+
+            # elif event_type == "Anomaly 4":
+
+            # elif event_type == "Anomaly 5":
+
+            # elif event_type == "Anomaly 11":
+
             else:
                 print(f"Unknown Event: {event_type}")
 
         working_objects_info = []
         # Increment the time in all objects
-        for i in range(len(self.virtual_robots)):
-            virtual_robot = self.virtual_robots[i]
-            working_object, pick_up_destination, placed_position = virtual_robot.step()
+        for robot_id in range(len(self.virtual_robots)):
+            virtual_robot = self.virtual_robots[robot_id]
+
+            # Check if there is an object in the robots drop off zone on the conveyor
+            conveyor_id = int(not robot_id)
+            object_at_drop_off = self._check_virtual_objects_drop_off_state(conveyor_id)
+
+            working_object, pick_up_destination, placed_position = virtual_robot.step(object_at_drop_off)
             if pick_up_destination is not None or placed_position is not None:
                 working_objects_info.append((working_object, pick_up_destination, placed_position))
 

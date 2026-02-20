@@ -58,9 +58,9 @@ configuration = {
     "saturation": [[1.23197705, 1.35534524], [1.27477756, 1.22645163]],
     # Times for the DT
     "Observed_times": {
-        "Conveyor_0": 9.15,
-        "Conveyor_1": 8.76,
-        "Robot_0_Conveyor_to_Conveyor": 6.07,
+        "Conveyor_0": 0,
+        "Conveyor_1": 0,
+        "Robot_0_Conveyor_to_Conveyor": 0,
         "Robot_1_Conveyor_to_Conveyor": 6.0,
         "Robot_0_Observation_to_Conveyor": 4.35,
         "Robot_1_Observation_to_Conveyor": 4.6,
@@ -70,10 +70,18 @@ configuration = {
         "Robot_1_Conveyor_to_Storage": 7.1,
         "Robot_0_Observation_to_Storage": 7.93,
         "Robot_1_Observation_to_Storage": 8.97,
-        "Robot_0_Conveyor_to_Observation": 3.03,
+        "Robot_0_Conveyor_to_Observation_place": 3.03,
         "Robot_0_Storage_to_Observation": 5.07,
-        "Robot_1_Conveyor_to_Observation": 4.4,
+        "Robot_1_Conveyor_to_Observation_place": 4.4,
         "Robot_1_Storage_to_Observation": 5.0,
+        "Robot_0_Safe_to_Conveyor": 4,
+        "Robot_0_Conveyor_to_Safe": 4,
+        "Robot_1_Safe_to_Conveyor": 4,
+        "Robot_1_Conveyor_to_Safe": 4,
+        "Robot_0_Storage_to_Standby": 4,
+        "Robot_1_Storage_to_Standby": 4,
+        "Robot_0_Conveyor_to_Observation_pickup": 4,
+        "Robot_1_Conveyor_to_Observation_pickup": 4,
     },
     "storagePositions": [
         [
@@ -248,37 +256,9 @@ configuration = {
         ],  # Point 4
     ],
     "Storage_workspace_1": [
-        [
-            -0.10058191168910334,
-            0.16154865763136206,
-            0.01650482978725408,
-            -1.2499469220381743,
-            1.56305438336274,
-            -0.7345335041950191,
-        ],  # Point 3
-        [
-            0.03718107352065722,
-            0.1618793032131123,
-            0.016595891541987484,
-            -1.4153997530676132,
-            1.5149205178866925,
-            -1.6819281888854605,
-        ],  # Point 2
-        [
-            0.03211398591120434,
-            0.2932694995681843,
-            0.01787590517238276,
-            -2.905693483888061,
-            1.5211577023579788,
-            -2.843704932913777,
-        ],  # Point 1
-        [
-            -0.10069238343294361,
-            0.29318653824249463,
-            0.016166038666620655,
-            -2.357499867376823,
-            1.5162626417225171,
-            -2.070090724804433,
-        ],  # Point 4]
+        [0.017317300935056065, 0.3002124567739622, 0.03511948402282107, 2.6378339691142987, 1.4997496448438217, -2.158278516800187],  # Point 3
+        [0.025728889297184226, 0.1637783519383701, 0.03653153739400475, -2.702986682551672, 1.5025317697712444, -1.4800880927813516],  # Point 2
+        [-0.11050817985167179, 0.156512995812484, 0.03286177904171689, -2.979056901500458, 1.488942137437697, -1.1083414664368054],  # Point 1
+        [-0.1209067926198649, 0.28474806063597224, 0.03176011025672984, 2.5892731970701384, 1.4986216949749003, -1.887249324684688],  # Point 4]
     ],
 }
