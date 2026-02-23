@@ -21,18 +21,15 @@ class AnimationObject:
 
 class Animation:
     def __init__(self, root, objects, dt=0.1):
+        self.dt = dt
         self.canvas_has_been_resized = False
         self.original_canvas_width = 1280
         self.original_canvas_height = 704
-
         self.storage_objects = objects
-
         self.root = root
-
         self.canvas = tk.Canvas(self.root, bg="#ffffff")
         self.canvas.grid(row=1, column=0, columnspan=2, sticky="news", padx=(30, 0), pady=30)
         self.canvas.bind("<Configure>", self.on_resize)
-        self.dt = dt
 
     def _sx(self, x):
         return x * self.width_scale
@@ -56,9 +53,22 @@ class Animation:
 
         self.robot_positions = [
             # Robot 0's positions
-            {"Storage": [self._sx(150), self._sy(500)], "Conveyor_Place": [self._sx(450), self._sy(200)], "Conveyor_IR": [self._sx(450), self._sy(470)], "Observation": [self._sx(350), self._sy(495)]},
+            {
+                "Place_Storage": [self._sx(150), self._sy(500)], 
+                "Pickup_Storage": [self._sx(150), self._sy(500)], 
+                "Place_Conveyor": [self._sx(450), self._sy(200)],
+                "Standby": [self._sx(350), self._sy(200)], 
+                "Pickup_Conveyor": [self._sx(450), self._sy(495)], 
+                "Observation": [self._sx(350), self._sy(495)]
+            },
             # Robot 1's positions
-            {"Storage": [self._sx(1135), self._sy(500)], "Conveyor_Place": [self._sx(830), self._sy(495)], "Conveyor_IR": [self._sx(830), self._sy(200)], "Observation": [self._sx(950), self._sy(200)]},
+            {
+                "Place_Storage": [self._sx(1135), self._sy(500)], 
+                "Pickup_Storage": [self._sx(1135), self._sy(500)], 
+                "Place_Conveyor": [self._sx(830), self._sy(495)], 
+                "Standby": [self._sx(930), self._sy(495)], 
+                "Pickup_Conveyor": [self._sx(830), self._sy(200)], 
+                "Observation": [self._sx(950), self._sy(200)]},
         ]
 
         self._create_conveyors()
@@ -78,27 +88,61 @@ class Animation:
         if self.canvas_has_been_resized:
             self.info_dt = info
 
-            # Use info to create next frame in Animation
-            for robot_id, robot in enumerate(self.info_dt["robots"]):
-                origin = ""
-                if robot[0].origin == "Conveyor":
-                    if robot[0].destination == "Observation":
-                        origin = "Conveyor_Place"
-                    else:
-                        origin = "Conveyor_IR"
-                else:
+            # Dont animate anything if we are in setup
+            if info["robots"][0][0].key != "Setup" and info["robots"][1][0].key != "Setup":
+                # Animate the robot
+                for robot_id, robot in enumerate(self.info_dt["robots"]):
                     origin = robot[0].origin
-
-                destination = ""
-                if robot[0].destination == "Conveyor":
-                    if robot[0].origin == "Observation":
-                        destination = "Conveyor_IR"
-                    else:
-                        destination = "Conveyor_Place"
-                else:
                     destination = robot[0].destination
 
-                self._animate_robot_frame(origin, destination, robot_id, robot[1])
+                    self._animate_robot_frame(origin, destination, robot_id, robot[1])
+                
+                # Animate the objects
+                for virtual_object in self.info_dt["objects"]:
+                    self._animate_object(virtual_object)
+                print("-----------")
+
+    def _animate_object(self, virtual_object):
+        shape, color = virtual_object[0]
+        state = virtual_object[1][0]
+        progress = virtual_object[1][1]
+
+        if (shape == ObjectShape.CIRCLE and color == ObjectColor.RED):
+            print(state)
+
+        origin = state.origin
+        animation_object = self._get_animation_objec(shape, color)
+        if origin == "Storage":
+            if shape == ObjectShape.CIRCLE:
+                x, y = animation_object.storage_position
+                if state.id == 1:
+                    x += self.storage_offset
+                self.canvas.coords(animation_object.canvas_ref, x - self._sx(25), y - self._sy(25), x + self._sx(25), y + self._sy(25))
+            elif shape == ObjectShape.SQUARE:
+                x1, y1, x2, y2 = animation_object.storage_position
+                if state.id == 1:
+                    x1 += self.storage_offset
+                    x2 += self.storage_offset
+                self.canvas.coords(animation_object.canvas_ref, x1, y1, x2, y2)
+        elif origin == "Conveyor":
+            start_x, start_y = self.robot_positions[int(not state.id)]["Place_Conveyor"]
+            end_x, end_y = self.robot_positions[state.id]["Pickup_Conveyor"]
+            x = (end_x - start_x) * progress + start_x
+            y = (end_y - start_y) * progress + start_y
+            self.canvas.coords(animation_object.canvas_ref, x - self._sx(25), y - self._sy(25), x + self._sx(25), y + self._sy(25))
+        elif origin == "Robot":
+            x1, y1, x2, y2 = self.canvas.coords(self.animation_robots[state.id].head)
+            self.canvas.coords(animation_object.canvas_ref, x1 - self._sx(5), y1 - self._sy(5), x2 + self._sx(5), y2 + self._sy(5))
+        elif origin == "IR":
+            x, y  = self.robot_positions[state.id]["Pickup_Conveyor"]
+            self.canvas.coords(animation_object.canvas_ref, x - self._sx(25), y - self._sy(25), x + self._sx(25), y + self._sy(25))
+
+
+    def _get_animation_objec(self, shape, color):
+        for obj in self.objects:
+            if obj.shape == shape and obj.color == color:
+                return obj
+
 
     def _create_circle(self, cx, cy, r, **kwargs):
         return self.canvas.create_oval(cx - r, cy - r, cx + r, cy + r, **kwargs)

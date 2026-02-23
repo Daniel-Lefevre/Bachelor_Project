@@ -80,7 +80,7 @@ class TimeBasedDT:
 
             object_at_ir = self._check_virtual_objects_at_ir_sensor(conveyor_id)
             return_obj = virtual_robot.step(object_at_drop_off, object_at_ir)
-            print(f"Robot {robot_id} state: {virtual_robot.state.key}")
+            # print(f"Robot {robot_id} state: {virtual_robot.state.key}")
             if return_obj is None:
                 return
 
@@ -101,13 +101,12 @@ class TimeBasedDT:
             ID = virtual_obj.state.id
             conveyor_running = self.virtual_conveyors[ID].get_info()
             virtual_obj.step(picked_up, placed_position, conveyor_running, conveyor_id_to_be_left)
-            if virtual_obj.color == ObjectColor.RED and virtual_obj.shape == ObjectShape.CIRCLE:
-                print(f"RED Circle state: {virtual_obj.state.key}")
+            # if virtual_obj.color == ObjectColor.RED and virtual_obj.shape == ObjectShape.CIRCLE:
+                # print(f"RED Circle state: {virtual_obj.state.key}")
             # Check if virtual object has reached in IR sensor
             if virtual_obj.get_ir_state():
                 self.virtual_robots[ID].add_to_queue(configuration["PickFromIRSensorPriority"], virtual_obj)
                 virtual_obj.set_ir_state(False)
-        print("----------------")
 
     def create_event(self, event: tuple[str, int | StorageObject]) -> None:
         eventype, event_param = event
@@ -130,7 +129,7 @@ class TimeBasedDT:
             info["robots"].append(robot.get_info())
 
         for obj in self.virtual_objects:
-            info["objects"].append(obj.get_info())
+            info["objects"].append(((obj.shape, obj.color), obj.get_info()))
 
         info["robots dropping object"] = self.robots_dropping_objects.copy()
         self.robots_dropping_objects = []

@@ -73,4 +73,11 @@ class VirtualObject:
             self.current_state_progress += self.step_size
 
     def get_info(self) -> tuple[ObjectState, float]:
-        return (self.state, self.current_state_progress / self.current_state_progress_goal if self.current_state_progress_goal != float("inf") else float("inf"))
+        progress = 0
+        if (self.current_state_progress_goal == float("inf")):
+            progress = float("inf")
+        elif (self.current_state_progress > self.current_state_progress_goal):
+            progress = 1
+        else:
+            progress = self.current_state_progress / self.current_state_progress_goal
+        return (self.state, progress)

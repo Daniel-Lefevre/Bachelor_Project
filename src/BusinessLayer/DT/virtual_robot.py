@@ -39,9 +39,10 @@ class VirtualRobot:
             return None
 
         if self.state.key == "Observation" and not self.queue.empty():
+            print("I am in observation and have non empty queue")
             self.working_object = self.queue.get()
-            self.next_destination = "Conveyor" if self.working_object.state.origin == "IR" else self.working_object.state.origin
-            self.state = self.states[f"Observation_to_Pickup_{self.next_destination}"]
+            destination = "Conveyor" if self.working_object.state.origin == "IR" else self.working_object.state.origin
+            self.state = self.states[f"Observation_to_Pickup_{destination}"]
             self.current_state_progress_goal = self.state.time
             self.current_state_progress = 0
 
@@ -108,10 +109,11 @@ class VirtualRobot:
             picked_up = True
 
         elif self.state.key == "Pickup_Conveyor_to_Observation":
-            if self.next_destination == "Conveyor":
+            next_destination = self.rules[(self.working_object.shape, self.working_object.color)]
+            if next_destination == "Conveyor":
                 self.state = self.states["Observation_to_Standby"]
 
-            elif self.next_destination == "Storage":
+            elif next_destination == "Storage":
                 self.state = self.states["Observation_to_Place_Storage"]
 
         elif self.state.key == "Observation_to_Place_Storage":
@@ -124,7 +126,14 @@ class VirtualRobot:
         return (picked_up, placed_position, dropping_object)
 
     def get_info(self) -> tuple[RobotStates, float]:
-        return (self.state, self.current_state_progress / self.current_state_progress_goal if self.current_state_progress_goal != float("inf") else float("inf"))
+        progress = 0
+        if (self.current_state_progress_goal == float("inf")):
+            progress = float("inf")
+        elif (self.current_state_progress > self.current_state_progress_goal):
+            progress = 1
+        else:
+            progress = self.current_state_progress / self.current_state_progress_goal
+        return (self.state, progress)
 
     def exit_setup(self) -> None:
         self.state = self.states["Observation"]
