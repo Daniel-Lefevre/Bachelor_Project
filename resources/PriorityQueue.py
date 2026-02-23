@@ -15,7 +15,6 @@ class CustomPriorityQueue:
 
     def put(self, parameter):
         priority, value = parameter
-        print(f"Value added to queue: {value.shape}, {value.color}")
         self.queues[priority - 1].append(value)
 
     def peek(self):

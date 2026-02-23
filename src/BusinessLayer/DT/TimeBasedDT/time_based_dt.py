@@ -21,6 +21,7 @@ class TimeBasedDT:
         self.events = Queue()
         self.virtual_conveyors = [VirtualConveyor(id) for id in range(configuration["NumberOfConveyors"])]
         self.virtual_robots = [VirtualRobot(id, self.step_size, self.virtual_conveyors[id]) for id in range(configuration["NumberOfRobotArms"])]
+        self.robots_dropping_objects = []
 
     def _object_to_virtual_object(self, object: StorageObject) -> VirtualObject:
         return VirtualObject(object.shape, object.color, self.step_size, int(object.position[-1]))
@@ -37,6 +38,13 @@ class TimeBasedDT:
 
         return False
 
+    def _check_virtual_objects_at_ir_sensor(self, conveyor_id: int) -> bool:
+        for virt_obj in self.virtual_objects:
+            if virt_obj.get_ir_state() and virt_obj.get_state == f"IR_{conveyor_id}":
+                return True
+
+        return False
+
     def step(self) -> None:
         conveyor_id_to_be_left = None
         # If an event has occured since last step
@@ -47,6 +55,10 @@ class TimeBasedDT:
                 self.virtual_robots[robot_id].add_to_queue(configuration["PickFromStoragePriority"], self._find_virtual_object(event_param.shape, event_param.color))
             elif event_type == "IR":
                 conveyor_id_to_be_left = event_param
+
+            elif event_type == "Setup done":
+                for robot in self.virtual_robots:
+                    robot.exit_setup()
 
             # elif event_type == "Anomaly 4":
 
@@ -66,25 +78,36 @@ class TimeBasedDT:
             conveyor_id = int(not robot_id)
             object_at_drop_off = self._check_virtual_objects_drop_off_state(conveyor_id)
 
-            working_object, pick_up_destination, placed_position = virtual_robot.step(object_at_drop_off)
-            if pick_up_destination is not None or placed_position is not None:
-                working_objects_info.append((working_object, pick_up_destination, placed_position))
+            object_at_ir = self._check_virtual_objects_at_ir_sensor(conveyor_id)
+            return_obj = virtual_robot.step(object_at_drop_off, object_at_ir)
+            print(f"Robot {robot_id} state: {virtual_robot.state.key}")
+            if return_obj is None:
+                return
+
+            working_object, picked_up, placed_position, dropping_object = return_obj
+            if dropping_object:
+                self.robots_dropping_objects.append(robot_id)
+            if picked_up is not None or placed_position is not None:
+                working_objects_info.append((working_object, picked_up, placed_position))
 
         for virtual_obj in self.virtual_objects:
-            pick_up_destination = None
+            picked_up = None
             placed_position = None
             for info in working_objects_info:
                 if info[0] == virtual_obj:
-                    pick_up_destination = info[1]
+                    picked_up = info[1]
                     placed_position = info[2]
 
             ID = virtual_obj.state.id
             conveyor_running = self.virtual_conveyors[ID].get_info()
-            virtual_obj.step(pick_up_destination, placed_position, conveyor_running, conveyor_id_to_be_left)
+            virtual_obj.step(picked_up, placed_position, conveyor_running, conveyor_id_to_be_left)
+            if virtual_obj.color == ObjectColor.RED and virtual_obj.shape == ObjectShape.CIRCLE:
+                print(f"RED Circle state: {virtual_obj.state.key}")
             # Check if virtual object has reached in IR sensor
-            if virtual_obj.has_reached_ir:
+            if virtual_obj.get_ir_state():
                 self.virtual_robots[ID].add_to_queue(configuration["PickFromIRSensorPriority"], virtual_obj)
-                virtual_obj.has_reached_ir = False
+                virtual_obj.set_ir_state(False)
+        print("----------------")
 
     def create_event(self, event: tuple[str, int | StorageObject]) -> None:
         eventype, event_param = event
@@ -92,19 +115,24 @@ class TimeBasedDT:
             self.events.put((eventype, self._object_to_virtual_object(event_param)))
         elif eventype == "IR":
             self.events.put((eventype, event_param))
+        elif eventype == "Setup done":
+            self.events.put((eventype, event_param))
 
     def set_rules(self, rules: list[dict]) -> None:
         # Set the rules on the virtual robot arms
         for i in range(len(self.virtual_robots)):
             self.virtual_robots[i].set_rules(rules[i])
 
-    def get_info_dt(self) -> dict[str, list]:
-        info = {"robots": [], "objects": []}
+    def get_info_dt(self) -> dict[list, list, list]:
+        info = {"robots": [], "objects": [], "robots dropping object": []}
 
         for robot in self.virtual_robots:
             info["robots"].append(robot.get_info())
 
         for obj in self.virtual_objects:
             info["objects"].append(obj.get_info())
+
+        info["robots dropping object"] = self.robots_dropping_objects.copy()
+        self.robots_dropping_objects = []
 
         return info

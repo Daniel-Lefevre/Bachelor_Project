@@ -61,6 +61,7 @@ class System:
         print(f"Robot {arm.ID} setup finished")
 
         # Change DT robots state to next state after setup
+        self.DT.create_event(("Setup done", None))
 
         # 2. Monitoring Phase
         while self.running:
@@ -164,7 +165,7 @@ class System:
 
     def _create_dt_anomaly_event(self, eventype: str, robot_id: int = None, shape: ObjectShape = None, color: ObjectColor = None) -> None:
         event_param = (robot_id, shape, color)
-        self.DT.create_event(eventype, event_param)
+        self.DT.create_event((eventype, event_param))
 
     def _anomaly_11_mitigation(self, robot_id_arrival: int, shape: ObjectShape, color: ObjectColor) -> None:
         self.robot_arms[robot_id_arrival].set_rules({(shape, color): "Conveyor"})
@@ -209,5 +210,10 @@ class System:
 
             time.sleep(0.1)
 
-    def get_info_dt(self) -> dict[str, list]:
-        return self.DT.get_info_dt()
+    def get_info_dt(self) -> dict[list, list, list]:
+        info = self.DT.get_info_dt()
+
+        for robot_id in info["robots dropping object"]:
+            self.robot_arms[robot_id].drop_object()
+
+        return info

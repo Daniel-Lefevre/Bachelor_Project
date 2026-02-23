@@ -26,7 +26,7 @@ class DTRunner:
         self.simulate_thread = threading.Thread(target=self._simulate)
         self.simulate_thread.start()
 
-    def create_event(self, event: tuple[str, int | StorageObject]) -> None:
+    def create_event(self, event: tuple[str, int | StorageObject | None]) -> None:
         with self.lock:
             self.dt_model.create_event(event)
 
@@ -42,5 +42,5 @@ class DTRunner:
             current_time = time.time()
             time.sleep(self.step_size - (current_time - interval_start))
 
-    def get_info_dt(self) -> dict[str, list]:
+    def get_info_dt(self) -> dict[list, list, list]:
         return self.dt_model.get_info_dt()

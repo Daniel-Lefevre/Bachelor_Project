@@ -58,30 +58,26 @@ configuration = {
     "saturation": [[1.23197705, 1.35534524], [1.27477756, 1.22645163]],
     # Times for the DT
     "Observed_times": {
-        "Conveyor_0": 0,
-        "Conveyor_1": 0,
-        "Robot_0_Conveyor_to_Conveyor": 0,
-        "Robot_1_Conveyor_to_Conveyor": 6.0,
-        "Robot_0_Observation_to_Conveyor": 4.35,
-        "Robot_1_Observation_to_Conveyor": 4.6,
-        "Robot_0_Storage_to_Conveyor": 7.01,
-        "Robot_1_Storage_to_Conveyor": 7.27,
-        "Robot_0_Conveyor_to_Storage": 7.7,
-        "Robot_1_Conveyor_to_Storage": 7.1,
-        "Robot_0_Observation_to_Storage": 7.93,
-        "Robot_1_Observation_to_Storage": 8.97,
-        "Robot_0_Conveyor_to_Observation_place": 3.03,
-        "Robot_0_Storage_to_Observation": 5.07,
-        "Robot_1_Conveyor_to_Observation_place": 4.4,
-        "Robot_1_Storage_to_Observation": 5.0,
-        "Robot_0_Safe_to_Conveyor": 4,
-        "Robot_0_Conveyor_to_Safe": 4,
-        "Robot_1_Safe_to_Conveyor": 4,
-        "Robot_1_Conveyor_to_Safe": 4,
-        "Robot_0_Storage_to_Standby": 4,
-        "Robot_1_Storage_to_Standby": 4,
-        "Robot_0_Conveyor_to_Observation_pickup": 4,
-        "Robot_1_Conveyor_to_Observation_pickup": 4,
+        "Conveyor_0": 8.26,
+        "Conveyor_1": 8.26,
+        "Robot_0_Observation_to_Pickup_Storage": 8.86,
+        "Robot_1_Observation_to_Pickup_Storage": 9.74,
+        "Robot_0_Observation_to_Pickup_Conveyor": 4.66,
+        "Robot_1_Observation_to_Pickup_Conveyor": 4.51,
+        "Robot_0_Pickup_Conveyor_to_Observation": 4.16,
+        "Robot_1_Pickup_Conveyor_to_Observation": 4.14,
+        "Robot_0_Observation_to_Standby": 2.78,
+        "Robot_1_Observation_to_Standby": 2.88,
+        "Robot_0_Observation_to_Place_Storage": 3.35,
+        "Robot_1_Observation_to_Place_Storage": 3.86,
+        "Robot_0_Standby_to_Place_Conveyor": 1.87,
+        "Robot_1_Standby_to_Place_Conveyor": 1.69,
+        "Robot_0_Storage_to_Standby": 6.6,
+        "Robot_1_Storage_to_Standby": 6.8,
+        "Robot_0_Place_Storage_to_Observation": 4.18,
+        "Robot_1_Place_Storage_to_Observation": 4.43,
+        "Robot_0_Place_Conveyor_to_Observation": 3.43,
+        "Robot_1_Place_Conveyor_to_Observation": 3.92,
     },
     "storagePositions": [
         [
@@ -124,6 +120,14 @@ configuration = {
                 1.492753388202436,
                 -1.5155268392165837,
             ],  # ObservationPositionStorage
+            [
+                0.2028789492464582,
+                0.1698822601182645,
+                0.23624773367036977,
+                0.03513008510678816,
+                1.4919714064477891,
+                -0.011501923089995283,
+            ],  # Standby Position
         ],
         # Robot_1's positions
         [
@@ -151,6 +155,14 @@ configuration = {
                 1.4558342950810048,
                 1.3648727293344325,
             ],  # ObservationPositionStorage
+            [
+                0.2157542042065579,
+                0.20369258396709879,
+                0.2216293024165304,
+                2.158089291524011,
+                1.524596107925453,
+                2.2656189128608912,
+            ],  # Standby Position
         ],
     ],
     "Conveyor_workspace_0": [

@@ -2,7 +2,7 @@ import tkinter as tk
 from dataclasses import dataclass
 from math import atan2, cos, pi, sin
 from types import SimpleNamespace
-from typing import Any, List
+from typing import Any, List, Literal
 
 from pyniryo import ObjectColor, ObjectShape
 
@@ -12,8 +12,8 @@ from src.BusinessLayer.DT.states import ObjectState, ObjectStates
 @dataclass
 class AnimationObject:
     name: str
-    shape: ObjectShape
-    color: ObjectColor
+    shape: Literal[ObjectShape.CIRCLE, ObjectShape.SQUARE]
+    color: Literal[ObjectColor.RED, ObjectColor.BLUE, ObjectColor.GREEN]
     state: ObjectState
     storage_position: List[int]
     canvas_ref: Any = None
@@ -21,27 +21,44 @@ class AnimationObject:
 
 class Animation:
     def __init__(self, root, objects, dt=0.1):
-        self.storage_pos_dict = {
-            "Red Square": [125, 550, 175, 600],
-            "Blue Square": [50, 550, 100, 600],
-            "Green Square": [200, 550, 250, 600],
-            "Red Circle": [75, 475],
-            "Blue Circle": [225, 475],
-            "Green Circle": [150, 475],
-        }
+        self.canvas_has_been_resized = False
+        self.original_canvas_width = 1280
+        self.original_canvas_height = 704
+
+        self.storage_objects = objects
+
         self.root = root
-        self.objects = [self._storage_object_to_animation_object(obj) for obj in objects]
 
         self.canvas = tk.Canvas(self.root, bg="#ffffff")
         self.canvas.grid(row=1, column=0, columnspan=2, sticky="news", padx=(30, 0), pady=30)
-        self.storage_offset = 985
+        self.canvas.bind("<Configure>", self.on_resize)
         self.dt = dt
+
+    def _sx(self, x):
+        return x * self.width_scale
+
+    def _sy(self, y):
+        return y * self.height_scale
+
+    def _initialize_canvas_values(self):
+        self.storage_pos_dict = {
+            "Red Square": [self._sx(125), self._sy(550), self._sx(175), self._sy(600)],
+            "Blue Square": [self._sx(50), self._sy(550), self._sx(100), self._sy(600)],
+            "Green Square": [self._sx(200), self._sy(550), self._sx(250), self._sy(600)],
+            "Red Circle": [self._sx(75), self._sy(475)],
+            "Blue Circle": [self._sx(225), self._sy(475)],
+            "Green Circle": [self._sx(150), self._sy(475)],
+        }
+
+        self.objects = [self._storage_object_to_animation_object(obj) for obj in self.storage_objects]
+
+        self.storage_offset = self._sx(985)
 
         self.robot_positions = [
             # Robot 0's positions
-            {"Storage": [150, 500], "Conveyor_Place": [450, 200], "Conveyor_IR": [450, 470], "Observation": [350, 495]},
+            {"Storage": [self._sx(150), self._sy(500)], "Conveyor_Place": [self._sx(450), self._sy(200)], "Conveyor_IR": [self._sx(450), self._sy(470)], "Observation": [self._sx(350), self._sy(495)]},
             # Robot 1's positions
-            {"Storage": [1135, 500], "Conveyor_Place": [830, 495], "Conveyor_IR": [830, 200], "Observation": [930, 200]},
+            {"Storage": [self._sx(1135), self._sy(500)], "Conveyor_Place": [self._sx(830), self._sy(495)], "Conveyor_IR": [self._sx(830), self._sy(200)], "Observation": [self._sx(950), self._sy(200)]},
         ]
 
         self._create_conveyors()
@@ -50,30 +67,38 @@ class Animation:
         self._create_objects()
         self._create_robot_arms()
 
+    def on_resize(self, event):
+        self.canvas.delete("all")
+        self.width_scale = event.width / self.original_canvas_width
+        self.height_scale = event.height / self.original_canvas_height
+        self.canvas_has_been_resized = True
+        self._initialize_canvas_values()
+
     def set_info_dt(self, info):
-        self.info_dt = info
+        if self.canvas_has_been_resized:
+            self.info_dt = info
 
-        # Use info to create next frame in Animation
-        for robot_id, robot in enumerate(self.info_dt["robots"]):
-            origin = ""
-            if robot[0].origin == "Conveyor":
-                if robot[0].destination == "Observation":
-                    origin = "Conveyor_Place"
+            # Use info to create next frame in Animation
+            for robot_id, robot in enumerate(self.info_dt["robots"]):
+                origin = ""
+                if robot[0].origin == "Conveyor":
+                    if robot[0].destination == "Observation":
+                        origin = "Conveyor_Place"
+                    else:
+                        origin = "Conveyor_IR"
                 else:
-                    origin = "Conveyor_IR"
-            else:
-                origin = robot[0].origin
+                    origin = robot[0].origin
 
-            destination = ""
-            if robot[0].destination == "Conveyor":
-                if robot[0].origin == "Observation":
-                    destination = "Conveyor_IR"
+                destination = ""
+                if robot[0].destination == "Conveyor":
+                    if robot[0].origin == "Observation":
+                        destination = "Conveyor_IR"
+                    else:
+                        destination = "Conveyor_Place"
                 else:
-                    destination = "Conveyor_Place"
-            else:
-                destination = robot[0].destination
+                    destination = robot[0].destination
 
-            self._animate_robot_frame(origin, destination, robot_id, robot[1])
+                self._animate_robot_frame(origin, destination, robot_id, robot[1])
 
     def _create_circle(self, cx, cy, r, **kwargs):
         return self.canvas.create_oval(cx - r, cy - r, cx + r, cy + r, **kwargs)
@@ -102,8 +127,8 @@ class Animation:
         # This is always 90 degrees (pi/2) offset from the arm
         orth_angle = arm_angle + (pi / 2)
 
-        # 3. Calculate the offset vector based on your desired thickness (e.g., 20px)
-        thickness = 20
+        # 3. Calculate the offset vector based on your desired thickness
+        thickness = self._sx(20)
         dx_orth = cos(orth_angle) * thickness
         dy_orth = sin(orth_angle) * thickness
 
@@ -120,7 +145,7 @@ class Animation:
         self.canvas.coords(self.animation_robots[robot_id].arm, *points)
 
     def _animate_robot_frame(self, origin, destination, robot_id, progress):
-        r = 20
+        r = self._sx(20)
         x, y = (0, 0)
         # If progress is 'float('inf)', then we are in a waiting state, which means there is no destination
         if progress == float("inf"):
@@ -138,25 +163,25 @@ class Animation:
 
     def _create_robot_arms(self):
         # Robot 0 base (static parts of robot)
-        self.canvas.create_polygon(50, 100, 250, 100, 250, 300, 50, 300, fill="#4167B6")
-        self._create_circle(150, 200, 80, fill="black", outline="")
-        self._create_circle(150, 200, 20, fill="#D1D8DE", outline="")
+        self.canvas.create_polygon(self._sx(50), self._sy(100), self._sx(250), self._sy(100), self._sx(250), self._sy(300), self._sx(50), self._sy(300), fill="#4167B6")
+        self._create_circle(self._sx(150), self._sy(200), self._sx(80), fill="black", outline="")
+        self._create_circle(self._sx(150), self._sy(200), self._sx(20), fill="#D1D8DE", outline="")
 
         # Robot 1 base (static parts of robot)
-        self.canvas.create_polygon(1035, 100, 1235, 100, 1235, 300, 1035, 300, fill="#4167B6")
-        self._create_circle(1135, 200, 80, fill="black", outline="")
-        self._create_circle(1135, 200, 20, fill="#D1D8DE", outline="")
+        self.canvas.create_polygon(self._sx(1035), self._sy(100), self._sx(1235), self._sy(100), self._sx(1235), self._sy(300), self._sx(1035), self._sy(300), fill="#4167B6")
+        self._create_circle(self._sx(1135), self._sy(200), self._sx(80), fill="black", outline="")
+        self._create_circle(self._sx(1135), self._sy(200), self._sx(20), fill="#D1D8DE", outline="")
 
         self.animation_robots = [
             SimpleNamespace(
-                head=self._create_circle(*self.robot_positions[0]["Observation"], 20, fill="black", outline=""),
-                arm=self.canvas.create_polygon(150, 220, 450, 220, 450, 180, 150, 180, fill="#D1D8DE"),
-                base=(150, 200),
+                head=self._create_circle(*self.robot_positions[0]["Observation"], self._sx(20), fill="black", outline=""),
+                arm=self.canvas.create_polygon(self._sx(150), self._sy(220), self._sx(450), self._sy(220), self._sx(450), self._sy(180), self._sx(150), self._sy(180), fill="#D1D8DE"),
+                base=(self._sx(150), self._sy(200)),
             ),
             SimpleNamespace(
-                head=self._create_circle(*self.robot_positions[1]["Observation"], 20, fill="black", outline=""),
-                arm=self.canvas.create_polygon(835, 220, 1135, 220, 1135, 180, 835, 180, fill="#D1D8DE"),
-                base=(1135, 200),
+                head=self._create_circle(*self.robot_positions[1]["Observation"], self._sx(20), fill="black", outline=""),
+                arm=self.canvas.create_polygon(self._sx(835), self._sy(220), self._sx(1135), self._sy(220), self._sx(1135), self._sy(180), self._sx(835), self._sy(180), fill="#D1D8DE"),
+                base=(self._sx(1135), self._sy(200)),
             ),
         ]
 
@@ -182,7 +207,7 @@ class Animation:
             if obj.shape == ObjectShape.CIRCLE:
                 if obj.state.id:
                     pos[0] += self.storage_offset
-                obj.canvas_ref = self._create_circle(pos[0], pos[1], 25, fill=color, outline="")
+                obj.canvas_ref = self._create_circle(pos[0], pos[1], self._sx(25), fill=color, outline="")
 
             elif obj.shape == ObjectShape.SQUARE:
                 if obj.state.id:
@@ -191,20 +216,20 @@ class Animation:
                 obj.canvas_ref = self.canvas.create_rectangle(*pos, fill=color, outline="")
 
     def _create_storages(self):
-        self.canvas.create_rectangle(25, 400, 275, 650, fill="#ffffff", outline="#000000", width=5)
-        self.canvas.create_rectangle(1010, 400, 1260, 650, fill="#ffffff", outline="#000000", width=5)
+        self.canvas.create_rectangle(self._sx(25), self._sy(400), self._sx(275), self._sy(650), fill="#ffffff", outline="#000000", width=5)
+        self.canvas.create_rectangle(self._sx(1010), self._sy(400), self._sx(1260), self._sy(650), fill="#ffffff", outline="#000000", width=5)
 
     def _create_conveyors(self):
-        self.canvas.create_rectangle(375, 125, 910, 275, fill="#484A4D")
-        self.canvas.create_rectangle(375, 425, 910, 575, fill="#484A4D")
+        self.canvas.create_rectangle(self._sx(375), self._sy(125), self._sx(910), self._sy(275), fill="#484A4D")
+        self.canvas.create_rectangle(self._sx(375), self._sy(425), self._sx(910), self._sy(575), fill="#484A4D")
 
     def _create_ir(self):
         # IR 1
-        self._create_circle(830, 103, 17, fill="#61130B", outline="")
-        self.canvas.create_rectangle(815, 45, 845, 95, fill="#CC9C3F", outline="")
-        self.canvas.create_rectangle(810, 85, 850, 105, fill="black", outline="")
+        self._create_circle(self._sx(830), self._sy(103), self._sx(17), fill="#61130B", outline="")
+        self.canvas.create_rectangle(self._sx(815), self._sy(45), self._sx(845), self._sy(95), fill="#CC9C3F", outline="")
+        self.canvas.create_rectangle(self._sx(810), self._sy(85), self._sx(850), self._sy(105), fill="black", outline="")
 
         # IR 0
-        self._create_circle(450, 403, 17, fill="#61130B", outline="")
-        self.canvas.create_rectangle(435, 345, 465, 395, fill="#CC9C3F", outline="")
-        self.canvas.create_rectangle(430, 385, 470, 405, fill="black", outline="")
+        self._create_circle(self._sx(450), self._sy(403), self._sx(17), fill="#61130B", outline="")
+        self.canvas.create_rectangle(self._sx(435), self._sy(345), self._sx(465), self._sy(395), fill="#CC9C3F", outline="")
+        self.canvas.create_rectangle(self._sx(430), self._sy(385), self._sx(470), self._sy(405), fill="black", outline="")
