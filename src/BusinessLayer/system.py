@@ -32,6 +32,8 @@ class System:
     def stop_system(self) -> None:
         print("STOP")
         self.running = False
+        # Time for DT to stop system, so that everything can be printed before shutting down
+        time.sleep(0.5)
         self.DT.stop_dt()
 
     def set_up(self) -> None:
@@ -147,8 +149,8 @@ class System:
                 messages = robot_arm.get_anomaly_updates()
                 for message in messages:
                     if message[0] in ["Anomaly 4 Mitigation failed", "Anomaly 14"]:
+                        self._create_dt_anomaly_event(message[0])
                         self.stop_system()
-                        print("Human Intervention Required")
                     elif message[0] == "Anomaly 4":
                         id_value, shape, color = message[1]
                         self._create_dt_anomaly_event(message[0], id_value, shape, color)
@@ -168,10 +170,15 @@ class System:
         self.DT.create_event((eventype, event_param))
 
     def _anomaly_11_mitigation(self, robot_id_arrival: int, shape: ObjectShape, color: ObjectColor) -> None:
+        # Rules for physical system
         self.robot_arms[robot_id_arrival].set_rules({(shape, color): "Conveyor"})
         self.robot_arms[int(not robot_id_arrival)].set_rules({(shape, color): "Storage"})
         self.robot_arms[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", shape, color)
         self.robot_arms[robot_id_arrival].set_mitigation_mode(False)
+
+        # Rules for Digital twin
+        self.DT.set_rules([None, {(shape, color): "Conveyor"}]) if robot_id_arrival else self.DT.set_rules([{(shape, color): "Conveyor"}, None])
+        self.DT.set_rules([{(shape, color): "Storage"}, None]) if robot_id_arrival else self.DT.set_rules([None, {(shape, color): "Storage"}])
 
     def _anomaly_5_mitigation(self, robot_id_arrival: int, shape: ObjectShape, color: ObjectColor) -> None:
         goal_storage_id = None
@@ -183,15 +190,21 @@ class System:
                             goal_storage_id = robot_id
                 else:
                     goal_storage_id = int(storage_object.position[-1])
-                    print(goal_storage_id)
+                    self.robot_arms[goal_storage_id].remove_object_from_storage(shape, color)
                 break
         if goal_storage_id == robot_id_arrival:
             self.robot_arms[robot_id_arrival].set_rules({(shape, color): "Storage"})
+            self.DT.set_rules([None, {(shape, color): "Storage"}]) if robot_id_arrival else self.DT.set_rules([{(shape, color): "Storage"}, None])
+
             self.robot_arms[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", shape, color)
             self.robot_arms[robot_id_arrival].set_mitigation_mode(False)
         else:
             self.robot_arms[robot_id_arrival].set_rules({(shape, color): "Conveyor"})
+            self.DT.set_rules([None, {(shape, color): "Conveyor"}]) if robot_id_arrival else self.DT.set_rules([{(shape, color): "Conveyor"}, None])
+
             self.robot_arms[int(not robot_id_arrival)].set_rules({(shape, color): "Storage"})
+            self.DT.set_rules([{(shape, color): "Storage"}, None]) if robot_id_arrival else self.DT.set_rules([None, {(shape, color): "Storage"}])
+
             self.robot_arms[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", shape, color)
             self.robot_arms[robot_id_arrival].set_mitigation_mode(False)
 

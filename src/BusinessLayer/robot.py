@@ -60,6 +60,12 @@ class RobotArm:
         for rule_key in rules:
             self.rules[rule_key] = rules[rule_key]
 
+    def remove_object_from_storage(self, shape: ObjectShape, color: ObjectColor) -> None:
+        for i in range(len(self.occupied_storage)):
+            if self.occupied_storage[i] is not None:
+                if self.occupied_storage[i][0] == shape and self.occupied_storage[i][1] == color:
+                    self.occupied_storage[i] = None
+
     def get_object_updates(self) -> list[tuple[ObjectShape, ObjectColor, str]]:
         object_updates_copy = copy.deepcopy(self.object_updates)
         self.object_updates.clear()
@@ -153,7 +159,7 @@ class RobotArm:
                 target_pose.z += 0.005
             elif self.ID == 1:
                 target_pose.x += 0.013
-                target_pose.y += 0.02
+                target_pose.y += 0.013
                 target_pose.z += 0.005
         return target_pose
 
@@ -170,7 +176,6 @@ class RobotArm:
 
         if not obj_found:
             if destination is not None:  # Object is taken from storage
-                print(f"{configuration['Anomalies'][14]}")
                 self.anomaly_updates.append(("Anomaly 14",))
 
         else:
@@ -180,7 +185,6 @@ class RobotArm:
                 area = self.rules.get((shape_ret, color_ret))
                 if area is None:
                     # The wrong object is on the conveyor belt, cast anomaly 5
-                    print(f"{configuration['Anomalies'][5]}")
                     self.set_mitigation_mode(True)
                     self.anomaly_updates.append(("Anomaly 5", (self.ID, shape_ret, color_ret)))
                     return
@@ -194,7 +198,6 @@ class RobotArm:
                             self.occupied_storage[i] = (shape_ret, color_ret)
                             break
                         elif i == len(self.occupied_storage) - 1:
-                            print(f"{configuration['Anomalies'][11]}")
                             self.set_mitigation_mode(True)
                             self.anomaly_updates.append(("Anomaly 11", (self.ID, shape_ret, color_ret)))
                             return
@@ -226,7 +229,8 @@ class RobotArm:
             return
         with self.lock:
             if self.queue.empty():
-                self._start_conveyorbelt()
+                if not self._check_ir():
+                    self._start_conveyorbelt()
                 if self._check_ir():
                     self.IR = True
                     self.add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
@@ -312,13 +316,17 @@ class RobotArm:
     def _place_and_release(self, destination: list[float]) -> None:
         if destination == self.place_conveyor:
             self._move_to_standby_position()
-            if not self._check_ir() and not self.ready_to_drop:
-                self._start_conveyorbelt()
+            start_time = time.time()
+
             while not self.ready_to_drop:
                 if self._check_ir():
                     self._stop_conveyorbelt()
+                elif time.time() - start_time > 1:
+                    self._start_conveyorbelt()
 
                 time.sleep(0.05)
+
+            self._stop_conveyorbelt()
             self.ready_to_drop = False
 
         self.robot.move_pose(*destination)
@@ -332,13 +340,11 @@ class RobotArm:
             if self.pick_and_place_first_try:
                 self.pick_and_place_first_try = False
                 # Robot arm has failed to pickup object from the conveyor, cast anomaly 4
-                print(f"{configuration['Anomalies'][4]}")
-                self.anomaly_updates.append(("Anomaly 4",))
+                self.anomaly_updates.append(("Anomaly 4", (self.ID, shape, color)))
                 self._release_with_tool()
                 self._find_and_move_object(workspace, shape, color, None)
                 return
             else:
-                print(f"Mitigation for {configuration['Anomalies'][4]} failed. Human intervention required")
                 self.anomaly_updates.append(("Anomaly 4 Mitigation failed",))
                 return
 

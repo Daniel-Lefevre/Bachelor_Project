@@ -33,13 +33,31 @@ class VirtualRobot:
     def add_to_queue(self, priority: int, virtual_object: VirtualObject | None) -> None:
         self.queue.put((priority, virtual_object))
 
+    def handle_anomaly(self, anomaly: str):
+        if anomaly == "Anomaly 4":
+            if self.state.key in ["Pickup_Conveyor_to_Observation", "Observation_to_Standby", "Observation_to_Place_Storage"]:
+                self.state = self.states["Observation_to_Pickup_Conveyor"]
+                self.current_state_progress = 0
+                self.current_state_progress_goal = self.state.time
+            else:
+                raise Exception("Wrong state for anomaly 4")
+        elif anomaly == "Anomaly 11":
+            if self.state.key in ["Place_Storage_to_Observation", "Place_Conveyor_to_Observation", "Observation", "Observation_to_Pickup_Conveyor"]:
+                self.state = self.states["Observation_to_Pickup_Conveyor"]
+                self.current_state_progress = 0
+                self.current_state_progress_goal = self.state.time
+            else:
+                print(self.state.key)
+                raise Exception("Wrong state for anomaly 11")
+        else:
+            raise Exception(f"Unknown anomaly: {anomaly}")
+
     def step(self, objec_at_drop_off: bool, object_at_ir: bool) -> tuple[VirtualObject | None, str | None, bool | None] | None:
         # If in setup dont do anything
         if self.state.key == "Setup":
             return None
 
         if self.state.key == "Observation" and not self.queue.empty():
-            print("I am in observation and have non empty queue")
             self.working_object = self.queue.get()
             destination = "Conveyor" if self.working_object.state.origin == "IR" else self.working_object.state.origin
             self.state = self.states[f"Observation_to_Pickup_{destination}"]
@@ -70,15 +88,8 @@ class VirtualRobot:
         else:
             self.conveyor.stop()
 
+        # print(f"{self.id}{self.state.key}: {picked_up}")
         return (self.working_object, picked_up, placed_position, dropping_object)
-
-    # def handle_anomaly(self, anomaly: str):
-    # if anomaly == "Anomaly 4":
-    # if (self.state.key in ["Storage_to_Observation", "Storage_to_Observation_place"])
-
-    # self.state = self.states[state]
-    # self.current_state_progress = 0
-    # self.current_state_progress_goal = self.state.time
 
     def _state_transition(self, objec_at_drop_off: bool) -> tuple[bool | None, str | None]:
         picked_up = False
@@ -127,9 +138,9 @@ class VirtualRobot:
 
     def get_info(self) -> tuple[RobotStates, float]:
         progress = 0
-        if (self.current_state_progress_goal == float("inf")):
+        if self.current_state_progress_goal == float("inf"):
             progress = float("inf")
-        elif (self.current_state_progress > self.current_state_progress_goal):
+        elif self.current_state_progress > self.current_state_progress_goal:
             progress = 1
         else:
             progress = self.current_state_progress / self.current_state_progress_goal

@@ -32,9 +32,33 @@ class VirtualObject:
 
     def is_at_drop_off(self, conveyor_id: int) -> bool:
         if self.state.key == f"Conveyor_{conveyor_id}":
-            return self.current_state_progress / self.current_state_progress_goal < 1 / 5
+            return_bool = (self.current_state_progress / self.current_state_progress_goal) < 1 / 6
+            if return_bool:
+                print(f"At drop off at conveyor {conveyor_id}: {self.shape} {self.color}. With progress {self.current_state_progress / self.current_state_progress_goal}")
+            return return_bool
         else:
             return False
+
+    def get_progress(self) -> float:
+        return self.current_state_progress / self.current_state_progress_goal
+
+    def handle_anomaly(self, anomaly: str, params=None):
+        if anomaly == "Anomaly 4":
+            if self.state.origin == "Robot":
+                self.state = self.states[f"IR_{self.state.id}"]
+                self.current_state_progress = 0
+                self.current_state_progress_goal = self.state.time
+            else:
+                raise Exception("Wrong state for anomaly 4")
+
+        elif anomaly == "Anomaly 5":
+            robot_arrival_id = params
+            self.state = self.states[f"IR_{robot_arrival_id}"]
+            self.current_state_progress = 0
+            self.current_state_progress_goal = self.state.time
+
+        else:
+            raise Exception(f"Unknown anomaly: {anomaly}")
 
     def step(self, picked_up: bool, placed_position: str | None, conveyor_running: bool, activated_ir_id: int | None):
         if activated_ir_id is not None and self.state.origin == "Conveyor" and self.state.id == activated_ir_id:
@@ -64,6 +88,7 @@ class VirtualObject:
             self.current_state_progress = 0
 
         elif picked_up:
+            print("Getting picked up")
             self.state = self.states[f"Robot_{self.state.id}"]
             self.current_state_progress_goal = float("inf")
             self.current_state_progress = 0
@@ -74,9 +99,9 @@ class VirtualObject:
 
     def get_info(self) -> tuple[ObjectState, float]:
         progress = 0
-        if (self.current_state_progress_goal == float("inf")):
+        if self.current_state_progress_goal == float("inf"):
             progress = float("inf")
-        elif (self.current_state_progress > self.current_state_progress_goal):
+        elif self.current_state_progress > self.current_state_progress_goal:
             progress = 1
         else:
             progress = self.current_state_progress / self.current_state_progress_goal

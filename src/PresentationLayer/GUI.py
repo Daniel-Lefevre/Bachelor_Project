@@ -195,7 +195,7 @@ class GUI:
     # Update the ANimation with DT data every 100 ms
     def _update_animation(self):
         self.animation.set_info_dt(self.system.get_info_dt())
-        self.root.after(100, self._update_animation)
+        self.root.after(20, self._update_animation)
 
     def _clicked(self, params):
         self.system.move_object(*params)

@@ -54,21 +54,22 @@ class Animation:
         self.robot_positions = [
             # Robot 0's positions
             {
-                "Place_Storage": [self._sx(150), self._sy(500)], 
-                "Pickup_Storage": [self._sx(150), self._sy(500)], 
+                "Place_Storage": [self._sx(150), self._sy(500)],
+                "Pickup_Storage": [self._sx(150), self._sy(500)],
                 "Place_Conveyor": [self._sx(450), self._sy(200)],
-                "Standby": [self._sx(350), self._sy(200)], 
-                "Pickup_Conveyor": [self._sx(450), self._sy(495)], 
-                "Observation": [self._sx(350), self._sy(495)]
+                "Standby": [self._sx(350), self._sy(200)],
+                "Pickup_Conveyor": [self._sx(450), self._sy(495)],
+                "Observation": [self._sx(350), self._sy(495)],
             },
             # Robot 1's positions
             {
-                "Place_Storage": [self._sx(1135), self._sy(500)], 
-                "Pickup_Storage": [self._sx(1135), self._sy(500)], 
-                "Place_Conveyor": [self._sx(830), self._sy(495)], 
-                "Standby": [self._sx(930), self._sy(495)], 
-                "Pickup_Conveyor": [self._sx(830), self._sy(200)], 
-                "Observation": [self._sx(950), self._sy(200)]},
+                "Place_Storage": [self._sx(1135), self._sy(500)],
+                "Pickup_Storage": [self._sx(1135), self._sy(500)],
+                "Place_Conveyor": [self._sx(830), self._sy(495)],
+                "Standby": [self._sx(930), self._sy(495)],
+                "Pickup_Conveyor": [self._sx(830), self._sy(200)],
+                "Observation": [self._sx(950), self._sy(200)],
+            },
         ]
 
         self._create_conveyors()
@@ -96,19 +97,15 @@ class Animation:
                     destination = robot[0].destination
 
                     self._animate_robot_frame(origin, destination, robot_id, robot[1])
-                
+
                 # Animate the objects
                 for virtual_object in self.info_dt["objects"]:
                     self._animate_object(virtual_object)
-                print("-----------")
 
     def _animate_object(self, virtual_object):
         shape, color = virtual_object[0]
         state = virtual_object[1][0]
         progress = virtual_object[1][1]
-
-        if (shape == ObjectShape.CIRCLE and color == ObjectColor.RED):
-            print(state)
 
         origin = state.origin
         animation_object = self._get_animation_objec(shape, color)
@@ -134,15 +131,13 @@ class Animation:
             x1, y1, x2, y2 = self.canvas.coords(self.animation_robots[state.id].head)
             self.canvas.coords(animation_object.canvas_ref, x1 - self._sx(5), y1 - self._sy(5), x2 + self._sx(5), y2 + self._sy(5))
         elif origin == "IR":
-            x, y  = self.robot_positions[state.id]["Pickup_Conveyor"]
+            x, y = self.robot_positions[state.id]["Pickup_Conveyor"]
             self.canvas.coords(animation_object.canvas_ref, x - self._sx(25), y - self._sy(25), x + self._sx(25), y + self._sy(25))
-
 
     def _get_animation_objec(self, shape, color):
         for obj in self.objects:
             if obj.shape == shape and obj.color == color:
                 return obj
-
 
     def _create_circle(self, cx, cy, r, **kwargs):
         return self.canvas.create_oval(cx - r, cy - r, cx + r, cy + r, **kwargs)
