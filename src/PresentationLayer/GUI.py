@@ -79,7 +79,7 @@ class GUI:
         dt_frame = ctk.CTkFrame(self.root, fg_color=self.box_color, corner_radius=10, width=100, height=100)
         dt_frame.pack_propagate(False)
 
-        ctk.CTkLabel(dt_frame, text="Logs", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 0))
+        ctk.CTkLabel(dt_frame, text="Settings", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 0))
 
         time_based_dt_button = ctk.CTkButton(dt_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Time based DT", command=lambda: self.system.stop_system(), width=120, height=35)
         time_based_dt_button.pack(pady=(10, 10))
@@ -100,11 +100,11 @@ class GUI:
         dt_frame.grid(row=1, column=2, sticky="news", padx=15, pady=15)
 
     def _create_anomaly_log(self):
-        log_frame = ctk.CTkFrame(self.root, fg_color=self.box_color, corner_radius=10)
-        # log_frame.pack_propagate(False)
+        self.log_frame = ctk.CTkFrame(self.root, fg_color=self.box_color, corner_radius=10)
+        self.log_frame.pack_propagate(False)
 
-        ctk.CTkLabel(log_frame, text="Logs", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 10))
-        log_frame.grid(row=1, column=3, sticky="news", padx=15, pady=15)
+        ctk.CTkLabel(self.log_frame, text="Logs", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 10))
+        self.log_frame.grid(row=1, column=3, sticky="news", padx=15, pady=15)
 
     # Function to "color" a black icon to white
     def _make_white(self, img):
@@ -169,6 +169,12 @@ class GUI:
                     )
                     btn.grid(row=0, column=j)
 
+    def add_log(self, anomaly_log_object):
+        time, actor, anomaly_text = anomaly_log_object
+        text = f"[{time}] {actor} - {anomaly_text}"
+        label = ctk.CTkLabel(self.log_frame, text=text, anchor="w")
+        label.pack(fill="x", padx=10, pady=2)
+
     def _update_storage_objects(self):
         # Refresh object list
         self.storage_objects = self.system.get_objects()
@@ -194,7 +200,10 @@ class GUI:
 
     # Update the ANimation with DT data every 100 ms
     def _update_animation(self):
-        self.animation.set_info_dt(self.system.get_info_dt())
+        animation_info, anomaly_log_objects = self.system.get_info_dt()
+        for anomaly_log_object in anomaly_log_objects:
+            self.add_log(anomaly_log_object)
+        self.animation.set_info_dt(animation_info)
         self.root.after(20, self._update_animation)
 
     def _clicked(self, params):

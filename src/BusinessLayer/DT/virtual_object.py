@@ -1,4 +1,6 @@
 from __future__ import annotations
+import copy
+import time
 
 from typing import TYPE_CHECKING
 
@@ -20,6 +22,8 @@ class VirtualObject:
         self.current_state_progress = 0
         self.step_size = step_size
         self.has_reached_ir = False
+        self.anomaly_logs = []
+        self.time_object_went_missing = None
 
     def set_ir_state(self, state: bool) -> None:
         self.has_reached_ir = state
@@ -64,9 +68,10 @@ class VirtualObject:
         if activated_ir_id is not None and self.state.origin == "Conveyor" and self.state.id == activated_ir_id:
             # Check that the object has arrived to early
             if self.current_state_progress_goal - self.current_state_progress > 1.0:
-                print("Either anomaly 2 or 7 has occured")
+                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 2 or 7 has occured"))
             elif self.current_state_progress_goal - self.current_state_progress < -1.0:
-                print("Either anomaly 1 or 7 has occured")
+                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 1 or 7 has occured"))
+                self.time_object_went_missing = None
 
             self.state = self.states[f"IR_{self.state.id}"]
             self.current_state_progress_goal = float("inf")
@@ -74,7 +79,11 @@ class VirtualObject:
             self.has_reached_ir = True
 
         elif self.current_state_progress_goal - self.current_state_progress < -1.0:
-            print("Either anomaly 1, 3, 7, 8, 9 or 10 has occured")
+            if (self.time_object_went_missing is None):
+                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 1, 3, 7, 8, 9 or 10 has occured"))
+                self.time_object_went_missing = time.time()
+            elif (time.time() - self.time_object_went_missing > 10):
+                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Mitigation for anomaly 1, 3, 7, 8, 9 or 10 has failed"))
 
         elif placed_position == "Conveyor":
             opposite_id = int(not self.state.id)
@@ -105,4 +114,7 @@ class VirtualObject:
             progress = 1
         else:
             progress = self.current_state_progress / self.current_state_progress_goal
-        return (self.state, progress)
+        animation_info = (self.state, progress)
+        anomaly_logs = copy.deepcopy(self.anomaly_logs)
+        self.anomaly_logs = []
+        return (animation_info, anomaly_logs)

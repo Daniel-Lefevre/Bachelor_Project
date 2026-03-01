@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import datetime
 
 from queue import Queue
 from typing import TYPE_CHECKING
@@ -9,6 +10,8 @@ from resources.environment import configuration
 from src.BusinessLayer.DT.virtual_conveyor import VirtualConveyor
 from src.BusinessLayer.DT.virtual_object import VirtualObject
 from src.BusinessLayer.DT.virtual_robot import VirtualRobot
+from src.BusinessLayer.DT.virtual_storage import VirtualStorage
+
 
 if TYPE_CHECKING:
     from resources.environment import StorageObject
@@ -20,8 +23,10 @@ class TimeBasedDT:
         self.virtual_objects = [self._object_to_virtual_object(obj) for obj in configuration["StorageObjects"]]
         self.events = Queue()
         self.virtual_conveyors = [VirtualConveyor(id) for id in range(configuration["NumberOfConveyors"])]
-        self.virtual_robots = [VirtualRobot(id, self.step_size, self.virtual_conveyors[id]) for id in range(configuration["NumberOfRobotArms"])]
+        self.virtual_storages = [VirtualStorage(id) for id in range(configuration["NumberOfRobotArms"])]
+        self.virtual_robots = [VirtualRobot(id, self.step_size, self.virtual_conveyors[id], self.virtual_storages[id]) for id in range(configuration["NumberOfRobotArms"])]
         self.robots_dropping_objects = []
+        self.anomaly_log_messages = []
 
     def _object_to_virtual_object(self, object: StorageObject) -> VirtualObject:
         return VirtualObject(object.shape, object.color, self.step_size, int(object.position[-1]))
@@ -65,33 +70,37 @@ class TimeBasedDT:
                     robot.exit_setup()
 
             elif event_type == "Anomaly 4":
-                print(configuration["Anomalies"][4])
                 robot_id, shape, color = event_param
+                self.anomaly_log_messages.append((robot_id, configuration["Anomalies"][4]))
+                print(configuration["Anomalies"][4])
                 self.virtual_robots[robot_id].handle_anomaly(event_type)
                 for virt_obj in self.virtual_objects:
                     if virt_obj.shape == shape and virt_obj.color == color:
                         virt_obj.handle_anomaly(event_type)
 
             elif event_type == "Anomaly 4 Mitigation failed":
+                robot_id = event_param
+                self.anomaly_log_messages.append((f"Robot {robot_id}", "Anomaly 4 Mitigation failed"))
                 print("Anomaly 4 Mitigation failed, Human intervention required")
 
             elif event_type == "Anomaly 5":
-                print(configuration["Anomalies"][5])
                 robot_id_arrival, shape, color = event_param
+                self.anomaly_log_messages.append((f"Robot {robot_id}", configuration["Anomalies"][5]))
+                print(configuration["Anomalies"][5])
                 for virt_obj in self.virtual_objects:
                     if virt_obj.shape == shape and virt_obj.color == color:
                         virt_obj.handle_anomaly("Anomaly 5", robot_id_arrival)
                         self.virtual_robots[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], virt_obj)
 
             elif event_type == "Anomaly 11":
-                print(configuration["Anomalies"][11])
                 robot_id, shape, color = event_param
+                self.anomaly_log_messages.append((f"Robot {robot_id}", configuration["Anomalies"][11]))
+                print(configuration["Anomalies"][11])
                 self.virtual_robots[robot_id].handle_anomaly(event_type)
-                # for virt_obj in self.virtual_objects:
-                #     if virt_obj.shape == shape and virt_obj.color == color:
-                #         self.virtual_robots[robot_id].add_to_queue(configuration["PickFromIRSensorPriority"], virt_obj)
 
             elif event_type == "Anomaly 14":
+                robot_id = event_param
+                self.anomaly_log_messages.append((f"Robot {robot_id}", configuration["Anomalies"][14]))
                 print(configuration["Anomalies"][14])
 
             else:
@@ -102,7 +111,7 @@ class TimeBasedDT:
         for robot_id in range(len(self.virtual_robots)):
             virtual_robot = self.virtual_robots[robot_id]
 
-            print(f"Robot {robot_id}: {virtual_robot.state}")
+            # print(f"Robot {robot_id}: {virtual_robot.state}")
 
             # Check if there is an object in the robots drop off zone on the conveyor
             conveyor_id = int(not robot_id)
@@ -121,9 +130,9 @@ class TimeBasedDT:
                 working_objects_info.append((working_object, picked_up, placed_position))
 
         for virtual_obj in self.virtual_objects:
-            if virtual_obj.color == ObjectColor.GREEN and virtual_obj.shape == ObjectShape.CIRCLE:
-                print(virtual_obj.state)
-                print("-------------")
+            # if virtual_obj.color == ObjectColor.GREEN and virtual_obj.shape == ObjectShape.CIRCLE:
+                # print(virtual_obj.state)
+                # print("-------------")
             picked_up = None
             placed_position = None
             for info in working_objects_info:
@@ -173,16 +182,29 @@ class TimeBasedDT:
                 continue
             self.virtual_robots[i].set_rules(rules[i])
 
-    def get_info_dt(self) -> dict[list, list, list]:
-        info = {"robots": [], "objects": [], "robots dropping object": []}
+    def _current_time(self):
+        return datetime.now().strftime("%H:%M")
+
+    def get_info_dt(self) -> tuple[list[tuple[str, int, str]], dict[list, list, list]]:
+        animation_info = {"robots": [], "objects": [], "robots dropping object": []}
+        anomaly_logs = []
+
+        for log_message in self.anomaly_log_messages:
+            actor, anomaly_text = log_message
+            anomaly_logs.append((self._current_time(), actor, anomaly_text))
 
         for robot in self.virtual_robots:
-            info["robots"].append(robot.get_info())
+            animation_info["robots"].append(robot.get_info())
 
         for obj in self.virtual_objects:
-            info["objects"].append(((obj.shape, obj.color), obj.get_info()))
+            storage_index = self.virtual_storages[obj.state.id].get_storage_position(obj.shape, obj.color)
+            info = obj.get_info()
+            animation_info["objects"].append(((obj.shape, obj.color), info[0], storage_index))
+            for log_message in info[1]:
+                actor, anomaly_text = log_message
+                anomaly_logs.append((self._current_time(), actor, anomaly_text))
 
-        info["robots dropping object"] = self.robots_dropping_objects.copy()
+        animation_info["robots dropping object"] = self.robots_dropping_objects.copy()
         self.robots_dropping_objects = []
 
-        return info
+        return (animation_info, anomaly_logs)

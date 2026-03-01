@@ -16,11 +16,13 @@ if TYPE_CHECKING:
 
 class System:
     def __init__(self, ips: list[str], positions: list[list[float]]):
-        self.robot_arms = []
+        # self.robot_arms = []
         self.running = True
         self.storage_objects = configuration["StorageObjects"]
         self.DT = DTRunner()
         self.lock = threading.Lock()
+        self.DT.create_event(("Setup done", None))
+
 
         # Add all the robot arms
         for i in range(len(ips)):
@@ -33,7 +35,7 @@ class System:
         print("STOP")
         self.running = False
         # Time for DT to stop system, so that everything can be printed before shutting down
-        time.sleep(0.5)
+        # time.sleep(0.5)
         self.DT.stop_dt()
 
     def set_up(self) -> None:
@@ -88,7 +90,7 @@ class System:
 
             time.sleep(0.05)
 
-        # Wait for the threads to finnish their task before shutting down
+    #     # Wait for the threads to finnish their task before shutting down
         for t in self.threads:
             t.join()
 
@@ -145,11 +147,11 @@ class System:
 
     def _anomaly_listener(self) -> None:
         while self.running:
-            for robot_arm in self.robot_arms:
+            for robot_id, robot_arm in enumerate(self.robot_arms):
                 messages = robot_arm.get_anomaly_updates()
                 for message in messages:
                     if message[0] in ["Anomaly 4 Mitigation failed", "Anomaly 14"]:
-                        self._create_dt_anomaly_event(message[0])
+                        self._create_dt_anomaly_event(message[0], robot_id)
                         self.stop_system()
                     elif message[0] == "Anomaly 4":
                         id_value, shape, color = message[1]
@@ -226,7 +228,13 @@ class System:
     def get_info_dt(self) -> dict[list, list, list]:
         info = self.DT.get_info_dt()
 
-        for robot_id in info["robots dropping object"]:
+        for robot_id in info[0]["robots dropping object"]:
             self.robot_arms[robot_id].drop_object()
+
+        for anomaly_log_object in info[1]:
+            if (anomaly_log_object[2] in [
+                "Mitigation for anomaly 1, 3, 7, 8, 9 or 10 has failed"
+                ]):
+                self.stop_system()
 
         return info

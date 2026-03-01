@@ -10,10 +10,11 @@ if TYPE_CHECKING:
     from src.BusinessLayer.DT.states import RobotStates
     from src.BusinessLayer.DT.virtual_conveyor import VirtualConveyor
     from src.BusinessLayer.DT.virtual_object import VirtualObject
+    from src.BusinessLayer.DT.virtual_storage import VirtualStorage
 
 
 class VirtualRobot:
-    def __init__(self, id: int, step_size: int, conveyor: VirtualConveyor):
+    def __init__(self, id: int, step_size: int, conveyor: VirtualConveyor, storage: VirtualStorage):
         self.rules = {}
         self.queue = CustomPriorityQueue(configuration["NumberOfPriorities"])
         self.id = id
@@ -24,6 +25,7 @@ class VirtualRobot:
         self.current_state_progress = 0
         self.working_object = None
         self.conveyor = conveyor
+        self.storage = storage
         self.next_destination = None
 
     def set_rules(self, rules: dict) -> None:
@@ -98,6 +100,7 @@ class VirtualRobot:
 
         if self.state.key == "Observation_to_Pickup_Storage":
             self.state = self.states["Storage_to_Standby"]
+            self.storage.remove_object(self.working_object.shape, self.working_object.color)
             picked_up = True
 
         elif self.state.key in ["Storage_to_Standby", "Observation_to_Standby"]:
@@ -130,6 +133,7 @@ class VirtualRobot:
         elif self.state.key == "Observation_to_Place_Storage":
             self.state = self.states["Place_Storage_to_Observation"]
             placed_position = "Storage"
+            self.storage.add_object(self.working_object.shape, self.working_object.color)
 
         self.current_state_progress = 0
         self.current_state_progress_goal = self.state.time

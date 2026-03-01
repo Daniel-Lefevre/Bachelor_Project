@@ -42,5 +42,5 @@ class DTRunner:
             current_time = time.time()
             time.sleep(self.step_size - (current_time - interval_start))
 
-    def get_info_dt(self) -> dict[list, list, list]:
+    def get_info_dt(self) -> tuple[list[tuple[str, int, str]], dict[list, list, list]]:
         return self.dt_model.get_info_dt()

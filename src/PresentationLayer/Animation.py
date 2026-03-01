@@ -15,6 +15,7 @@ class AnimationObject:
     shape: Literal[ObjectShape.CIRCLE, ObjectShape.SQUARE]
     color: Literal[ObjectColor.RED, ObjectColor.BLUE, ObjectColor.GREEN]
     state: ObjectState
+    storage_index: int
     storage_position: List[int]
     canvas_ref: Any = None
 
@@ -30,6 +31,23 @@ class Animation:
         self.canvas = tk.Canvas(self.root, bg="#ffffff")
         self.canvas.grid(row=1, column=0, columnspan=2, sticky="news", padx=(30, 0), pady=30)
         self.canvas.bind("<Configure>", self.on_resize)
+        self.object_to_index = {
+            (ObjectShape.SQUARE, ObjectColor.BLUE): 0,
+            (ObjectShape.SQUARE, ObjectColor.RED): 0,
+            (ObjectShape.CIRCLE, ObjectColor.RED): 1,
+            (ObjectShape.SQUARE, ObjectColor.GREEN): 1,
+            (ObjectShape.CIRCLE, ObjectColor.GREEN): 2,
+            (ObjectShape.CIRCLE, ObjectColor.BLUE): 2
+        }
+        self.object_to_robot_id = {
+            (ObjectShape.SQUARE, ObjectColor.BLUE): 0,
+            (ObjectShape.SQUARE, ObjectColor.RED): 1,
+            (ObjectShape.CIRCLE, ObjectColor.RED): 0,
+            (ObjectShape.SQUARE, ObjectColor.GREEN): 1,
+            (ObjectShape.CIRCLE, ObjectColor.GREEN): 0,
+            (ObjectShape.CIRCLE, ObjectColor.BLUE): 1
+        }
+
 
     def _sx(self, x):
         return x * self.width_scale
@@ -84,7 +102,7 @@ class Animation:
         self.height_scale = event.height / self.original_canvas_height
         self.canvas_has_been_resized = True
         self._initialize_canvas_values()
-
+    
     def set_info_dt(self, info):
         if self.canvas_has_been_resized:
             self.info_dt = info
@@ -99,27 +117,26 @@ class Animation:
                     self._animate_robot_frame(origin, destination, robot_id, robot[1])
 
                 # Animate the objects
-                for virtual_object in self.info_dt["objects"]:
-                    self._animate_object(virtual_object)
+                for info in self.info_dt["objects"]:
+                    (shape, color), (state, progress), storage_index = info
+                    self._animate_object(shape, color, state, progress, storage_index)
 
-    def _animate_object(self, virtual_object):
-        shape, color = virtual_object[0]
-        state = virtual_object[1][0]
-        progress = virtual_object[1][1]
-
+    def _animate_object(self, shape, color, state, progress, storage_index):
         origin = state.origin
-        animation_object = self._get_animation_objec(shape, color)
+
+        animation_object = self._get_animation_object(shape, color)
         if origin == "Storage":
+            animation_object.storage_position = self.get_storage_position(shape, storage_index, state.id)
             if shape == ObjectShape.CIRCLE:
                 x, y = animation_object.storage_position
-                if state.id == 1:
-                    x += self.storage_offset
+                # if state.id == 1:
+                #     x += self.storage_offset
                 self.canvas.coords(animation_object.canvas_ref, x - self._sx(25), y - self._sy(25), x + self._sx(25), y + self._sy(25))
             elif shape == ObjectShape.SQUARE:
                 x1, y1, x2, y2 = animation_object.storage_position
-                if state.id == 1:
-                    x1 += self.storage_offset
-                    x2 += self.storage_offset
+                # if state.id == 1:
+                #     x1 += self.storage_offset
+                #     x2 += self.storage_offset
                 self.canvas.coords(animation_object.canvas_ref, x1, y1, x2, y2)
         elif origin == "Conveyor":
             start_x, start_y = self.robot_positions[int(not state.id)]["Place_Conveyor"]
@@ -134,7 +151,7 @@ class Animation:
             x, y = self.robot_positions[state.id]["Pickup_Conveyor"]
             self.canvas.coords(animation_object.canvas_ref, x - self._sx(25), y - self._sy(25), x + self._sx(25), y + self._sy(25))
 
-    def _get_animation_objec(self, shape, color):
+    def _get_animation_object(self, shape, color):
         for obj in self.objects:
             if obj.shape == shape and obj.color == color:
                 return obj
@@ -148,8 +165,10 @@ class Animation:
             object.shape,
             object.color,
             ObjectStates[f"Storage_{object.position[-1]}"],
-            self.storage_pos_dict[object.name],
+            self.object_to_index[(object.shape,object.color)],
+            self.get_storage_position(object.shape, self.object_to_index[(object.shape, object.color)], self.object_to_robot_id[(object.shape, object.color)])
         )
+    
 
     def _connect_head_to_base(self, robot_id):
         x1, y1, x2, y2 = self.canvas.coords(self.animation_robots[robot_id].head)
@@ -230,6 +249,33 @@ class Animation:
         # Raise the heads to always stay on top of everything
         self.canvas.tag_raise(self.animation_robots[0].head)
         self.canvas.tag_raise(self.animation_robots[1].head)
+    
+    def get_storage_position(self, shape, storage_index, robot_index):
+        cx, cy = (0,0)
+
+        # Get storage position
+        if robot_index == 0:
+            cx, cy = (150, 525)
+        elif robot_index == 1:
+            cx, cy = (1135, 525)
+
+        # Get correct vertical position
+        if storage_index in [0,1]:
+            cy -= 67.5
+        elif storage_index in [2,3]:
+            cy += 67.5
+
+        # Get correct horizontal position
+        if storage_index in [0,2]:
+            cx -= 67.5
+        elif storage_index in [1,3]:
+            cx += 67.5
+        
+        # Return 4 position if square and 2 if circle
+        if shape == ObjectShape.SQUARE:
+            return [self._sx(cx-25), self._sy(cy-25), self._sx(cx+25), self._sy(cy+25)]
+        elif shape == ObjectShape.CIRCLE:
+            return [self._sx(cx), self._sy(cy)]
 
     def _create_objects(self):
         for obj in self.objects:
@@ -244,14 +290,9 @@ class Animation:
             pos = obj.storage_position.copy()
 
             if obj.shape == ObjectShape.CIRCLE:
-                if obj.state.id:
-                    pos[0] += self.storage_offset
                 obj.canvas_ref = self._create_circle(pos[0], pos[1], self._sx(25), fill=color, outline="")
 
             elif obj.shape == ObjectShape.SQUARE:
-                if obj.state.id:
-                    for i in range(0, 4, 2):
-                        pos[i] += self.storage_offset
                 obj.canvas_ref = self.canvas.create_rectangle(*pos, fill=color, outline="")
 
     def _create_storages(self):
