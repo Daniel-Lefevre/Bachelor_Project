@@ -16,13 +16,12 @@ if TYPE_CHECKING:
 
 class System:
     def __init__(self, ips: list[str], positions: list[list[float]]):
-        # self.robot_arms = []
+        self.robot_arms = []
         self.running = True
         self.storage_objects = configuration["StorageObjects"]
         self.DT = DTRunner()
         self.lock = threading.Lock()
         self.DT.create_event(("Setup done", None))
-
 
         # Add all the robot arms
         for i in range(len(ips)):
@@ -90,7 +89,7 @@ class System:
 
             time.sleep(0.05)
 
-    #     # Wait for the threads to finnish their task before shutting down
+        #     # Wait for the threads to finnish their task before shutting down
         for t in self.threads:
             t.join()
 
@@ -232,9 +231,7 @@ class System:
             self.robot_arms[robot_id].drop_object()
 
         for anomaly_log_object in info[1]:
-            if (anomaly_log_object[2] in [
-                "Mitigation for anomaly 1, 3, 7, 8, 9 or 10 has failed"
-                ]):
+            if anomaly_log_object[2] in ["Mitigation for anomaly 1, 3, 7, 8, 9 or 10 has failed"]:
                 self.stop_system()
 
         return info
