@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import threading
 import time
 from typing import TYPE_CHECKING
@@ -28,7 +29,7 @@ class System:
             id_value = i
             ip_address = ips[i]
             poses = positions[i]
-            self.robot_arms.append(RobotArm(ip_address, poses, id_value, configuration["StorageOccupancy"][id_value]))
+            self.robot_arms.append(RobotArm(ip_address, poses, id_value, copy.deepcopy(configuration["StorageOccupancy"][id_value])))
 
     def stop_system(self) -> None:
         print("STOP")
@@ -99,6 +100,7 @@ class System:
                 obj = self.storage_objects[i]
                 if obj.shape == shape and obj.color == color:
                     self.storage_objects[i].position = position
+                    return
 
     def get_objects(self) -> list[StorageObject]:
         # Retrieve updates from the robot arms
@@ -231,7 +233,7 @@ class System:
             self.robot_arms[robot_id].drop_object()
 
         for anomaly_log_object in info[1]:
-            if anomaly_log_object[2] in ["Mitigation for anomaly 1, 3, 7, 8, 9 or 10 has failed"]:
+            if anomaly_log_object[2] in ["Mitigation for anomaly 1, 3, 7, 8, 9 or 10 has failed", "Anomaly 14"]:
                 self.stop_system()
 
         return info

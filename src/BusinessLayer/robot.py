@@ -61,10 +61,13 @@ class RobotArm:
             self.rules[rule_key] = rules[rule_key]
 
     def remove_object_from_storage(self, shape: ObjectShape, color: ObjectColor) -> None:
+        print(f"storage: {self.occupied_storage}")
         for i in range(len(self.occupied_storage)):
             if self.occupied_storage[i] is not None:
                 if self.occupied_storage[i][0] == shape and self.occupied_storage[i][1] == color:
                     self.occupied_storage[i] = None
+                    print(self.occupied_storage)
+                    return
 
     def get_object_updates(self) -> list[tuple[ObjectShape, ObjectColor, str]]:
         object_updates_copy = copy.deepcopy(self.object_updates)
@@ -179,7 +182,7 @@ class RobotArm:
                 self.anomaly_updates.append(("Anomaly 14",))
 
         else:
-            print(f"Object found: {shape_ret}, {color_ret}")
+            # print(f"++++++++++Object found: {shape_ret}, {color_ret}++++++++++++")
             final_destination = False
             if destination is None:
                 area = self.rules.get((shape_ret, color_ret))
@@ -207,9 +210,7 @@ class RobotArm:
                     print(f"Unknown area, {area}")
                     return
             else:
-                for i in range(len(self.occupied_storage)):
-                    if self.occupied_storage[i] is not None and self.occupied_storage[i][0] == shape and self.occupied_storage[i][1] == color:
-                        self.occupied_storage[i] = None
+                self.remove_object_from_storage(shape, color)
 
             x, y, object_yaw = object_pose
 
@@ -222,7 +223,8 @@ class RobotArm:
 
     def _check_ir(self) -> bool:
         all_pins = self.robot.get_digital_io_state()
-        return all_pins[4].state == PinState.LOW
+        self.IR = all_pins[4].state == PinState.LOW
+        return self.IR
 
     def loop(self) -> None:
         if self.mitigation_mode:
@@ -231,11 +233,8 @@ class RobotArm:
             if self.queue.empty():
                 if not self._check_ir():
                     self._start_conveyorbelt()
-                if self._check_ir():
-                    self.IR = True
-                    self.add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
                 else:
-                    self.IR = False
+                    self.add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
             else:
                 self._stop_conveyorbelt()
                 time.sleep(0.5)

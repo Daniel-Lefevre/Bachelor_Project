@@ -1,14 +1,14 @@
 from __future__ import annotations
+
 import copy
 import time
-
 from typing import TYPE_CHECKING
+
+from pyniryo import ObjectColor, ObjectShape
 
 from src.BusinessLayer.DT.states import ObjectStates
 
 if TYPE_CHECKING:
-    from pyniryo import ObjectColor, ObjectShape
-
     from src.BusinessLayer.DT.states import ObjectState
 
 
@@ -37,8 +37,8 @@ class VirtualObject:
     def is_at_drop_off(self, conveyor_id: int) -> bool:
         if self.state.key == f"Conveyor_{conveyor_id}":
             return_bool = (self.current_state_progress / self.current_state_progress_goal) < 1 / 6
-            if return_bool:
-                print(f"At drop off at conveyor {conveyor_id}: {self.shape} {self.color}. With progress {self.current_state_progress / self.current_state_progress_goal}")
+            # if return_bool:
+            #     print(f"At drop off at conveyor {conveyor_id}: {self.shape} {self.color}. With progress {self.current_state_progress / self.current_state_progress_goal}")
             return return_bool
         else:
             return False
@@ -65,6 +65,8 @@ class VirtualObject:
             raise Exception(f"Unknown anomaly: {anomaly}")
 
     def step(self, picked_up: bool, placed_position: str | None, conveyor_running: bool, activated_ir_id: int | None):
+        # if self.shape == ObjectShape.CIRCLE and self.color == ObjectColor.BLUE:
+        # print(f"RED SQUARE STATE: {self.state.key}")
         if activated_ir_id is not None and self.state.origin == "Conveyor" and self.state.id == activated_ir_id:
             # Check that the object has arrived to early
             if self.current_state_progress_goal - self.current_state_progress > 1.0:
@@ -79,10 +81,10 @@ class VirtualObject:
             self.has_reached_ir = True
 
         elif self.current_state_progress_goal - self.current_state_progress < -1.0:
-            if (self.time_object_went_missing is None):
+            if self.time_object_went_missing is None:
                 self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 1, 3, 7, 8, 9 or 10 has occured"))
                 self.time_object_went_missing = time.time()
-            elif (time.time() - self.time_object_went_missing > 10):
+            elif time.time() - self.time_object_went_missing > 10:
                 self.anomaly_logs.append((f"Conveyor {self.state.id}", "Mitigation for anomaly 1, 3, 7, 8, 9 or 10 has failed"))
 
         elif placed_position == "Conveyor":

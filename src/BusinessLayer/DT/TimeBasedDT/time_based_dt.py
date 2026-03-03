@@ -1,6 +1,6 @@
 from __future__ import annotations
-from datetime import datetime
 
+from datetime import datetime
 from queue import Queue
 from typing import TYPE_CHECKING
 
@@ -11,7 +11,6 @@ from src.BusinessLayer.DT.virtual_conveyor import VirtualConveyor
 from src.BusinessLayer.DT.virtual_object import VirtualObject
 from src.BusinessLayer.DT.virtual_robot import VirtualRobot
 from src.BusinessLayer.DT.virtual_storage import VirtualStorage
-
 
 if TYPE_CHECKING:
     from resources.environment import StorageObject
@@ -60,6 +59,7 @@ class TimeBasedDT:
                 robot_id = int(event_param.state.id)
                 self.virtual_robots[robot_id].add_to_queue(configuration["PickFromStoragePriority"], self._find_virtual_object(event_param.shape, event_param.color))
             elif event_type == "IR":
+                print("------------------------------------------IR-------------------------------------")
                 conveyor_id = event_param
                 furthest_object = self._get_object_furthest_on_conveyor(conveyor_id)
                 if furthest_object is not None:
@@ -131,8 +131,8 @@ class TimeBasedDT:
 
         for virtual_obj in self.virtual_objects:
             # if virtual_obj.color == ObjectColor.GREEN and virtual_obj.shape == ObjectShape.CIRCLE:
-                # print(virtual_obj.state)
-                # print("-------------")
+            # print(virtual_obj.state)
+            # print("-------------")
             picked_up = None
             placed_position = None
             for info in working_objects_info:
@@ -194,7 +194,11 @@ class TimeBasedDT:
             anomaly_logs.append((self._current_time(), actor, anomaly_text))
 
         for robot in self.virtual_robots:
-            animation_info["robots"].append(robot.get_info())
+            info, robot_anomaly_logs = robot.get_info()
+            animation_info["robots"].append(info)
+            for log in robot_anomaly_logs:
+                actor, anomaly_text = log
+                anomaly_logs.append((self._current_time(), actor, anomaly_text))
 
         for obj in self.virtual_objects:
             storage_index = self.virtual_storages[obj.state.id].get_storage_position(obj.shape, obj.color)

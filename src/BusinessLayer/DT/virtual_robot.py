@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from typing import TYPE_CHECKING
 
 from resources.environment import configuration
@@ -27,6 +28,8 @@ class VirtualRobot:
         self.conveyor = conveyor
         self.storage = storage
         self.next_destination = None
+        self.anomaly_logs = []
+        self.has_exited_anoamly15 = True
 
     def set_rules(self, rules: dict) -> None:
         for rule_key in rules:
@@ -42,7 +45,7 @@ class VirtualRobot:
                 self.current_state_progress = 0
                 self.current_state_progress_goal = self.state.time
             else:
-                raise Exception("Wrong state for anomaly 4")
+                raise Exception("Wrong state for anomaly 4 {self.state}")
         elif anomaly == "Anomaly 11":
             if self.state.key in ["Place_Storage_to_Observation", "Place_Conveyor_to_Observation", "Observation", "Observation_to_Pickup_Conveyor"]:
                 self.state = self.states["Observation_to_Pickup_Conveyor"]
@@ -50,11 +53,13 @@ class VirtualRobot:
                 self.current_state_progress_goal = self.state.time
             else:
                 print(self.state.key)
-                raise Exception("Wrong state for anomaly 11")
+                raise Exception("Wrong state for anomaly 11 {self.state}")
         else:
             raise Exception(f"Unknown anomaly: {anomaly}")
 
     def step(self, objec_at_drop_off: bool, object_at_ir: bool) -> tuple[VirtualObject | None, str | None, bool | None] | None:
+        if self.id == 0:
+            print(f"status: {self.conveyor.get_info()}")
         # If in setup dont do anything
         if self.state.key == "Setup":
             return None
@@ -74,6 +79,7 @@ class VirtualRobot:
             self.current_state_progress_goal = self.state.time
             self.current_state_progress = 0
             dropping_object = True
+            self.has_exited_anoamly15 = True
 
         picked_up = False
         placed_position = None
@@ -83,12 +89,12 @@ class VirtualRobot:
             dropping_object = dropping_object or dropping_object_ret
             self.current_state_progress = 0
 
-        self.current_state_progress += self.step_size
-
         if self.state.key in ["Observation", "Standby"] and not object_at_ir:
             self.conveyor.start()
         else:
             self.conveyor.stop()
+
+        self.current_state_progress += self.step_size
 
         # print(f"{self.id}{self.state.key}: {picked_up}")
         return (self.working_object, picked_up, placed_position, dropping_object)
@@ -105,11 +111,14 @@ class VirtualRobot:
 
         elif self.state.key in ["Storage_to_Standby", "Observation_to_Standby"]:
             if objec_at_drop_off:
-                print("Anomaly 15")
+                if self.has_exited_anoamly15:
+                    self.anomaly_logs.append((f"Robot {self.id}", "Anomaly 15 has occured"))
                 self.state = self.states["Standby"]
+                self.has_exited_anoamly15 = False
             else:
                 self.state = self.states["Standby_to_Place_Conveyor"]
                 dropping_object = True
+                self.has_exited_anoamly15 = True
 
         elif self.state.key == "Standby_to_Place_Conveyor":
             placed_position = "Conveyor"
@@ -148,7 +157,10 @@ class VirtualRobot:
             progress = 1
         else:
             progress = self.current_state_progress / self.current_state_progress_goal
-        return (self.state, progress)
+        animation_info = (self.state, progress)
+        anomaly_logs = copy.deepcopy(self.anomaly_logs)
+        self.anomaly_logs = []
+        return (animation_info, anomaly_logs)
 
     def exit_setup(self) -> None:
         self.state = self.states["Observation"]

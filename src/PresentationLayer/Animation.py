@@ -37,7 +37,7 @@ class Animation:
             (ObjectShape.CIRCLE, ObjectColor.RED): 1,
             (ObjectShape.SQUARE, ObjectColor.GREEN): 1,
             (ObjectShape.CIRCLE, ObjectColor.GREEN): 2,
-            (ObjectShape.CIRCLE, ObjectColor.BLUE): 2
+            (ObjectShape.CIRCLE, ObjectColor.BLUE): 2,
         }
         self.object_to_robot_id = {
             (ObjectShape.SQUARE, ObjectColor.BLUE): 0,
@@ -45,9 +45,8 @@ class Animation:
             (ObjectShape.CIRCLE, ObjectColor.RED): 0,
             (ObjectShape.SQUARE, ObjectColor.GREEN): 1,
             (ObjectShape.CIRCLE, ObjectColor.GREEN): 0,
-            (ObjectShape.CIRCLE, ObjectColor.BLUE): 1
+            (ObjectShape.CIRCLE, ObjectColor.BLUE): 1,
         }
-
 
     def _sx(self, x):
         return x * self.width_scale
@@ -102,7 +101,7 @@ class Animation:
         self.height_scale = event.height / self.original_canvas_height
         self.canvas_has_been_resized = True
         self._initialize_canvas_values()
-    
+
     def set_info_dt(self, info):
         if self.canvas_has_been_resized:
             self.info_dt = info
@@ -125,6 +124,7 @@ class Animation:
         origin = state.origin
 
         animation_object = self._get_animation_object(shape, color)
+
         if origin == "Storage":
             animation_object.storage_position = self.get_storage_position(shape, storage_index, state.id)
             if shape == ObjectShape.CIRCLE:
@@ -165,10 +165,9 @@ class Animation:
             object.shape,
             object.color,
             ObjectStates[f"Storage_{object.position[-1]}"],
-            self.object_to_index[(object.shape,object.color)],
-            self.get_storage_position(object.shape, self.object_to_index[(object.shape, object.color)], self.object_to_robot_id[(object.shape, object.color)])
+            self.object_to_index[(object.shape, object.color)],
+            self.get_storage_position(object.shape, self.object_to_index[(object.shape, object.color)], self.object_to_robot_id[(object.shape, object.color)]),
         )
-    
 
     def _connect_head_to_base(self, robot_id):
         x1, y1, x2, y2 = self.canvas.coords(self.animation_robots[robot_id].head)
@@ -249,9 +248,9 @@ class Animation:
         # Raise the heads to always stay on top of everything
         self.canvas.tag_raise(self.animation_robots[0].head)
         self.canvas.tag_raise(self.animation_robots[1].head)
-    
+
     def get_storage_position(self, shape, storage_index, robot_index):
-        cx, cy = (0,0)
+        cx, cy = (0, 0)
 
         # Get storage position
         if robot_index == 0:
@@ -260,20 +259,20 @@ class Animation:
             cx, cy = (1135, 525)
 
         # Get correct vertical position
-        if storage_index in [0,1]:
+        if storage_index in [0, 1]:
             cy -= 67.5
-        elif storage_index in [2,3]:
+        elif storage_index in [2, 3]:
             cy += 67.5
 
         # Get correct horizontal position
-        if storage_index in [0,2]:
+        if storage_index in [0, 2]:
             cx -= 67.5
-        elif storage_index in [1,3]:
+        elif storage_index in [1, 3]:
             cx += 67.5
-        
+
         # Return 4 position if square and 2 if circle
         if shape == ObjectShape.SQUARE:
-            return [self._sx(cx-25), self._sy(cy-25), self._sx(cx+25), self._sy(cy+25)]
+            return [self._sx(cx - 25), self._sy(cy - 25), self._sx(cx + 25), self._sy(cy + 25)]
         elif shape == ObjectShape.CIRCLE:
             return [self._sx(cx), self._sy(cy)]
 

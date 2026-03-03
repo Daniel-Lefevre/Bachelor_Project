@@ -79,18 +79,18 @@ class GUI:
         dt_frame = ctk.CTkFrame(self.root, fg_color=self.box_color, corner_radius=10, width=100, height=100)
         dt_frame.pack_propagate(False)
 
-        ctk.CTkLabel(dt_frame, text="Settings", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 0))
+        # ctk.CTkLabel(dt_frame, text="Settings", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 0))
 
-        time_based_dt_button = ctk.CTkButton(dt_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Time based DT", command=lambda: self.system.stop_system(), width=120, height=35)
-        time_based_dt_button.pack(pady=(10, 10))
+        # time_based_dt_button = ctk.CTkButton(dt_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Time based DT", command=lambda: self.system.stop_system(), width=120, height=35)
+        # time_based_dt_button.pack(pady=(10, 10))
 
-        vision_based_dt_button = ctk.CTkButton(dt_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Vision based DT", command=lambda: self.system.stop_system(), width=120, height=35)
-        vision_based_dt_button.pack(pady=(10, 10))
+        # vision_based_dt_button = ctk.CTkButton(dt_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Vision based DT", command=lambda: self.system.stop_system(), width=120, height=35)
+        # vision_based_dt_button.pack(pady=(10, 10))
 
-        no_dt_button = ctk.CTkButton(dt_frame, fg_color=self.bg_color, hover_color=self.border_color, text="No DT", command=lambda: self.system.stop_system(), width=120, height=35)
-        no_dt_button.pack(pady=(10, 10))
+        # no_dt_button = ctk.CTkButton(dt_frame, fg_color=self.bg_color, hover_color=self.border_color, text="No DT", command=lambda: self.system.stop_system(), width=120, height=35)
+        # no_dt_button.pack(pady=(10, 10))
 
-        ctk.CTkLabel(dt_frame, text="Turn on/off system", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack()
+        ctk.CTkLabel(dt_frame, text="Turn on/off system", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 0))
 
         start_button = ctk.CTkButton(dt_frame, fg_color="green", hover_color=self.border_color, text="Vision based DT", command=lambda: self.system.stop_system(), width=120, height=35)
         start_button.pack(pady=(10, 10))
@@ -172,8 +172,13 @@ class GUI:
     def add_log(self, anomaly_log_object):
         time, actor, anomaly_text = anomaly_log_object
         text = f"[{time}] {actor} - {anomaly_text}"
-        label = ctk.CTkLabel(self.log_frame, text=text, anchor="w")
+
+        label = ctk.CTkLabel(self.log_frame, text=text, anchor="w", justify="left")
         label.pack(fill="x", padx=10, pady=2)
+
+        # Auto-adjust wraplength to frame width
+        self.log_frame.update_idletasks()
+        label.configure(wraplength=self.log_frame.winfo_width() - 20)
 
     def _update_storage_objects(self):
         # Refresh object list
@@ -204,7 +209,7 @@ class GUI:
         for anomaly_log_object in anomaly_log_objects:
             self.add_log(anomaly_log_object)
         self.animation.set_info_dt(animation_info)
-        self.root.after(20, self._update_animation)
+        self.root.after(100, self._update_animation)
 
     def _clicked(self, params):
         self.system.move_object(*params)
