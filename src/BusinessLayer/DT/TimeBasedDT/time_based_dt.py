@@ -7,10 +7,8 @@ from typing import TYPE_CHECKING
 from pyniryo import ObjectColor, ObjectShape
 
 from resources.environment import configuration
-from src.BusinessLayer.DT.virtual_conveyor import VirtualConveyor
 from src.BusinessLayer.DT.virtual_object import VirtualObject
 from src.BusinessLayer.DT.virtual_robot import VirtualRobot
-from src.BusinessLayer.DT.virtual_storage import VirtualStorage
 
 if TYPE_CHECKING:
     from resources.environment import StorageObject
@@ -21,11 +19,15 @@ class TimeBasedDT:
         self.step_size = step_size
         self.virtual_objects = [self._object_to_virtual_object(obj) for obj in configuration["StorageObjects"]]
         self.events = Queue()
-        self.virtual_conveyors = [VirtualConveyor(id) for id in range(configuration["NumberOfConveyors"])]
-        self.virtual_storages = [VirtualStorage(id) for id in range(configuration["NumberOfRobotArms"])]
-        self.virtual_robots = [VirtualRobot(id, self.step_size, self.virtual_conveyors[id], self.virtual_storages[id]) for id in range(configuration["NumberOfRobotArms"])]
+        self.virtual_robots = [VirtualRobot(id, self.step_size) for id in range(configuration["NumberOfRobotArms"])]
         self.robots_dropping_objects = []
         self.anomaly_log_messages = []
+
+    #
+    #
+    # Private function
+    #
+    #
 
     def _object_to_virtual_object(self, object: StorageObject) -> VirtualObject:
         return VirtualObject(object.shape, object.color, self.step_size, int(object.position[-1]))
@@ -49,8 +51,13 @@ class TimeBasedDT:
 
         return False
 
+    #
+    #
+    # Public function
+    #
+    #
+
     def step(self) -> None:
-        # print("----------")
         # If an event has occured since last step
         leaving_conveyor = None
         while not self.events.empty():
@@ -59,7 +66,6 @@ class TimeBasedDT:
                 robot_id = int(event_param.state.id)
                 self.virtual_robots[robot_id].add_to_queue(configuration["PickFromStoragePriority"], self._find_virtual_object(event_param.shape, event_param.color))
             elif event_type == "IR":
-                print("------------------------------------------IR-------------------------------------")
                 conveyor_id = event_param
                 furthest_object = self._get_object_furthest_on_conveyor(conveyor_id)
                 if furthest_object is not None:
@@ -85,7 +91,7 @@ class TimeBasedDT:
 
             elif event_type == "Anomaly 5":
                 robot_id_arrival, shape, color = event_param
-                self.anomaly_log_messages.append((f"Robot {robot_id}", configuration["Anomalies"][5]))
+                self.anomaly_log_messages.append((f"Robot {robot_id_arrival}", configuration["Anomalies"][5]))
                 print(configuration["Anomalies"][5])
                 for virt_obj in self.virtual_objects:
                     if virt_obj.shape == shape and virt_obj.color == color:
@@ -111,7 +117,6 @@ class TimeBasedDT:
         for robot_id in range(len(self.virtual_robots)):
             virtual_robot = self.virtual_robots[robot_id]
 
-            # print(f"Robot {robot_id}: {virtual_robot.state}")
 
             # Check if there is an object in the robots drop off zone on the conveyor
             conveyor_id = int(not robot_id)
@@ -141,7 +146,7 @@ class TimeBasedDT:
                     placed_position = info[2]
 
             ID = virtual_obj.state.id
-            conveyor_running = self.virtual_conveyors[ID].get_info()
+            conveyor_running = self.virtual_robots[ID].get_conveyor_info()
 
             conveyor_id_to_be_left = None
             if leaving_conveyor is not None and leaving_conveyor[0] == virtual_obj.shape and leaving_conveyor[1] == virtual_obj.color:
@@ -201,7 +206,7 @@ class TimeBasedDT:
                 anomaly_logs.append((self._current_time(), actor, anomaly_text))
 
         for obj in self.virtual_objects:
-            storage_index = self.virtual_storages[obj.state.id].get_storage_position(obj.shape, obj.color)
+            storage_index = self.virtual_robots[obj.state.id].get_storage_position(obj.shape, obj.color)
             info = obj.get_info()
             animation_info["objects"].append(((obj.shape, obj.color), info[0], storage_index))
             for log_message in info[1]:

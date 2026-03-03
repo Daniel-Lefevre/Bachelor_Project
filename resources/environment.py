@@ -21,7 +21,6 @@ configuration = {
     "PickFromIRSensorPriority": 1,
     # Overview of equipment in the experimental setup
     "NumberOfRobotArms": 2,
-    "NumberOfConveyors": 2,
     # Dictionary over anomalies
     "Anomalies": {
         1: "Anomaly 1: Object pushed backwards on conveyor belt",

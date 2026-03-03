@@ -9,6 +9,7 @@ class GUI:
         self.system = system
         self.storage_objects = system.get_objects()
 
+        # Load in the images used as symbols for the GUI
         self._load_images()
 
         # Color palette
@@ -29,9 +30,9 @@ class GUI:
         self.labels = ["Storage_0", "In_Transit", "Storage_1"]
 
         # Keep references to stack frames so we can update them later
+        # This is going to show whether an object is in storage 0, storage 1 or in transit
         self.frames = {}
         self.last_state = {}
-
         for col, label in enumerate(self.labels):
             stack = self._create_stack(self.root, label, self.box_color)
             if col == 0:
@@ -42,17 +43,19 @@ class GUI:
                 stack.grid(row=0, column=col + 1, padx=15, pady=15, sticky="nsew")
             self.frames[label] = stack
 
+        # Create the ANimation Canvas
         self.animation = Animation(self.root, self.storage_objects)
 
         # Make the grid cells expand
         grid_configs = [2, 1, 1, 2]
         for i in range(4):
             self.root.grid_columnconfigure(i, weight=grid_configs[i])
-
         for i in range(2):
             self.root.grid_rowconfigure(i, weight=1)
 
+        # Create the terminal fro anomaly logs
         self._create_anomaly_log()
+        # Create the settings button
         self._create_buttons()
 
         # Start the periodic update loop
@@ -112,10 +115,12 @@ class GUI:
         # Invert the RGB channels (Black becomes White) but keep the original Alpha (transparency)
         return Image.merge("RGBA", (ImageOps.invert(r), ImageOps.invert(g), ImageOps.invert(b), a))
 
+    # Create the stack for on of the storages or in transit
     def _create_stack(self, parent, title, color):
         stack_frame = ctk.CTkFrame(parent, fg_color=color, corner_radius=10)
         stack_frame.pack_propagate(False)
 
+        # Convert the titles from underscore tol space
         new_title = ""
         if title == "In_Transit":
             new_title = "In Transit"
@@ -128,9 +133,11 @@ class GUI:
         stack_frame.object_container = ctk.CTkFrame(stack_frame, fg_color="transparent")
         stack_frame.object_container.pack(fill="both", expand=True, padx=5, pady=(0, 10))
 
+        # This fills in the objects in the stack
         self._populate_stack(stack_frame, title)
         return stack_frame
 
+    # This fills in the objects in the stack
     def _populate_stack(self, stack_frame, title):
         # Clear previous widgets
         for widget in stack_frame.object_container.winfo_children():
@@ -169,7 +176,8 @@ class GUI:
                     )
                     btn.grid(row=0, column=j)
 
-    def add_log(self, anomaly_log_object):
+    # Add log message to the log terminal
+    def _add_log(self, anomaly_log_object):
         time, actor, anomaly_text = anomaly_log_object
         text = f"[{time}] {actor} - {anomaly_text}"
 
@@ -180,6 +188,7 @@ class GUI:
         self.log_frame.update_idletasks()
         label.configure(wraplength=self.log_frame.winfo_width() - 20)
 
+    # Update the storage objects based on information from system
     def _update_storage_objects(self):
         # Refresh object list
         self.storage_objects = self.system.get_objects()
@@ -203,13 +212,14 @@ class GUI:
         # Call again after 500 ms
         self.root.after(500, self._update_storage_objects)
 
-    # Update the ANimation with DT data every 100 ms
+    # Update the Animation with DT data every 100 ms
     def _update_animation(self):
         animation_info, anomaly_log_objects = self.system.get_info_dt()
         for anomaly_log_object in anomaly_log_objects:
-            self.add_log(anomaly_log_object)
+            self._add_log(anomaly_log_object)
         self.animation.set_info_dt(animation_info)
         self.root.after(100, self._update_animation)
 
+    # Call move_object function in system when a button has been clicked in
     def _clicked(self, params):
         self.system.move_object(*params)

@@ -6,16 +6,18 @@ from typing import TYPE_CHECKING
 from resources.environment import configuration
 from resources.PriorityQueue import CustomPriorityQueue
 from src.BusinessLayer.DT.states import create_robot_states
+from src.BusinessLayer.DT.virtual_conveyor import VirtualConveyor
+from src.BusinessLayer.DT.virtual_storage import VirtualStorage
 
 if TYPE_CHECKING:
+    from pyniryo import ObjectColor, ObjectShape
+
     from src.BusinessLayer.DT.states import RobotStates
-    from src.BusinessLayer.DT.virtual_conveyor import VirtualConveyor
     from src.BusinessLayer.DT.virtual_object import VirtualObject
-    from src.BusinessLayer.DT.virtual_storage import VirtualStorage
 
 
 class VirtualRobot:
-    def __init__(self, id: int, step_size: int, conveyor: VirtualConveyor, storage: VirtualStorage):
+    def __init__(self, id: int, step_size: int):
         self.rules = {}
         self.queue = CustomPriorityQueue(configuration["NumberOfPriorities"])
         self.id = id
@@ -25,11 +27,70 @@ class VirtualRobot:
         self.current_state_progress_goal = float("inf")
         self.current_state_progress = 0
         self.working_object = None
-        self.conveyor = conveyor
-        self.storage = storage
+        self.conveyor = VirtualConveyor(self.id)
+        self.storage = VirtualStorage(self.id)
         self.next_destination = None
         self.anomaly_logs = []
         self.has_exited_anoamly15 = True
+
+    # Handles the transition between states of the virtual robot arm
+    def _state_transition(self, objec_at_drop_off: bool) -> tuple[bool, str | None]:
+        picked_up = False
+        placed_position = None
+        dropping_object = False
+
+        # In this state the robot picks up an object and therefore sets the flag and removes it from storage
+        if self.state.key == "Observation_to_Pickup_Storage":
+            self.state = self.states["Storage_to_Standby"]
+            self.storage.remove_object(self.working_object.shape, self.working_object.color)
+            picked_up = True
+
+        #
+        elif self.state.key in ["Storage_to_Standby", "Observation_to_Standby"]:
+            if objec_at_drop_off:
+                if self.has_exited_anoamly15:
+                    self.anomaly_logs.append((f"Robot {self.id}", "Anomaly 15 has occured"))
+                self.state = self.states["Standby"]
+                self.has_exited_anoamly15 = False
+            else:
+                self.state = self.states["Standby_to_Place_Conveyor"]
+                dropping_object = True
+                self.has_exited_anoamly15 = True
+
+        elif self.state.key == "Standby_to_Place_Conveyor":
+            placed_position = "Conveyor"
+            self.state = self.states["Place_Conveyor_to_Observation"]
+
+        elif self.state.key in ["Place_Conveyor_to_Observation", "Place_Storage_to_Observation"]:
+            self.state = self.states["Observation"]
+
+        elif self.state.key == "Observation_to_Pickup_Conveyor":
+            self.state = self.states["Pickup_Conveyor_to_Observation"]
+            picked_up = True
+
+        elif self.state.key == "Pickup_Conveyor_to_Observation":
+            next_destination = self.rules[(self.working_object.shape, self.working_object.color)]
+            if next_destination == "Conveyor":
+                self.state = self.states["Observation_to_Standby"]
+
+            elif next_destination == "Storage":
+                self.state = self.states["Observation_to_Place_Storage"]
+
+        elif self.state.key == "Observation_to_Place_Storage":
+            self.state = self.states["Place_Storage_to_Observation"]
+            placed_position = "Storage"
+            self.storage.add_object(self.working_object.shape, self.working_object.color)
+
+        self.current_state_progress = 0
+        self.current_state_progress_goal = self.state.time
+
+        return (picked_up, placed_position, dropping_object)
+
+    def get_conveyor_info(self) -> bool:
+        return self.conveyor.get_info()
+
+    def get_storage_position(self, shape: ObjectShape, color: ObjectColor) -> int | None:
+        return self.storage.get_storage_position(shape, color)
 
     def set_rules(self, rules: dict) -> None:
         for rule_key in rules:
@@ -45,7 +106,7 @@ class VirtualRobot:
                 self.current_state_progress = 0
                 self.current_state_progress_goal = self.state.time
             else:
-                raise Exception("Wrong state for anomaly 4 {self.state}")
+                raise Exception(f"Wrong state for anomaly 4 {self.state}")
         elif anomaly == "Anomaly 11":
             if self.state.key in ["Place_Storage_to_Observation", "Place_Conveyor_to_Observation", "Observation", "Observation_to_Pickup_Conveyor"]:
                 self.state = self.states["Observation_to_Pickup_Conveyor"]
@@ -53,7 +114,7 @@ class VirtualRobot:
                 self.current_state_progress_goal = self.state.time
             else:
                 print(self.state.key)
-                raise Exception("Wrong state for anomaly 11 {self.state}")
+                raise Exception(f"Wrong state for anomaly 11 {self.state}")
         else:
             raise Exception(f"Unknown anomaly: {anomaly}")
 
@@ -98,56 +159,6 @@ class VirtualRobot:
 
         # print(f"{self.id}{self.state.key}: {picked_up}")
         return (self.working_object, picked_up, placed_position, dropping_object)
-
-    def _state_transition(self, objec_at_drop_off: bool) -> tuple[bool | None, str | None]:
-        picked_up = False
-        placed_position = None
-        dropping_object = False
-
-        if self.state.key == "Observation_to_Pickup_Storage":
-            self.state = self.states["Storage_to_Standby"]
-            self.storage.remove_object(self.working_object.shape, self.working_object.color)
-            picked_up = True
-
-        elif self.state.key in ["Storage_to_Standby", "Observation_to_Standby"]:
-            if objec_at_drop_off:
-                if self.has_exited_anoamly15:
-                    self.anomaly_logs.append((f"Robot {self.id}", "Anomaly 15 has occured"))
-                self.state = self.states["Standby"]
-                self.has_exited_anoamly15 = False
-            else:
-                self.state = self.states["Standby_to_Place_Conveyor"]
-                dropping_object = True
-                self.has_exited_anoamly15 = True
-
-        elif self.state.key == "Standby_to_Place_Conveyor":
-            placed_position = "Conveyor"
-            self.state = self.states["Place_Conveyor_to_Observation"]
-
-        elif self.state.key in ["Place_Conveyor_to_Observation", "Place_Storage_to_Observation"]:
-            self.state = self.states["Observation"]
-
-        elif self.state.key == "Observation_to_Pickup_Conveyor":
-            self.state = self.states["Pickup_Conveyor_to_Observation"]
-            picked_up = True
-
-        elif self.state.key == "Pickup_Conveyor_to_Observation":
-            next_destination = self.rules[(self.working_object.shape, self.working_object.color)]
-            if next_destination == "Conveyor":
-                self.state = self.states["Observation_to_Standby"]
-
-            elif next_destination == "Storage":
-                self.state = self.states["Observation_to_Place_Storage"]
-
-        elif self.state.key == "Observation_to_Place_Storage":
-            self.state = self.states["Place_Storage_to_Observation"]
-            placed_position = "Storage"
-            self.storage.add_object(self.working_object.shape, self.working_object.color)
-
-        self.current_state_progress = 0
-        self.current_state_progress_goal = self.state.time
-
-        return (picked_up, placed_position, dropping_object)
 
     def get_info(self) -> tuple[RobotStates, float]:
         progress = 0

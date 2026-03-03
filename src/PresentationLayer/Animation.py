@@ -30,7 +30,7 @@ class Animation:
         self.root = root
         self.canvas = tk.Canvas(self.root, bg="#ffffff")
         self.canvas.grid(row=1, column=0, columnspan=2, sticky="news", padx=(30, 0), pady=30)
-        self.canvas.bind("<Configure>", self.on_resize)
+        self.canvas.bind("<Configure>", self._on_resize)
         self.object_to_index = {
             (ObjectShape.SQUARE, ObjectColor.BLUE): 0,
             (ObjectShape.SQUARE, ObjectColor.RED): 0,
@@ -48,12 +48,49 @@ class Animation:
             (ObjectShape.CIRCLE, ObjectColor.BLUE): 1,
         }
 
+    #
+    #
+    # Private functions
+    #
+    #
+
+    # Helper function to retrieve animation objects based on shape and color
+    def _get_animation_object(self, shape, color):
+        for obj in self.objects:
+            if obj.shape == shape and obj.color == color:
+                return obj
+
+    # Helper function to create a circle based on center and radius
+    def _create_circle(self, cx, cy, r, **kwargs):
+        return self.canvas.create_oval(cx - r, cy - r, cx + r, cy + r, **kwargs)
+
+    # Helper function to create an animation object from a storage object
+    def _storage_object_to_animation_object(self, object):
+        return AnimationObject(
+            object.name,
+            object.shape,
+            object.color,
+            ObjectStates[f"Storage_{object.position[-1]}"],
+            self.object_to_index[(object.shape, object.color)],
+            self._get_storage_position(object.shape, self.object_to_index[(object.shape, object.color)], self.object_to_robot_id[(object.shape, object.color)]),
+        )
+
+    # Functions for scaling the canvas to the screen size
     def _sx(self, x):
         return x * self.width_scale
 
     def _sy(self, y):
         return y * self.height_scale
 
+    # Screen has been resized so canvas must be changed
+    def _on_resize(self, event):
+        self.canvas.delete("all")
+        self.width_scale = event.width / self.original_canvas_width
+        self.height_scale = event.height / self.original_canvas_height
+        self.canvas_has_been_resized = True
+        self._initialize_canvas_values()
+
+    # Initialize the canvas and its objects
     def _initialize_canvas_values(self):
         self.storage_pos_dict = {
             "Red Square": [self._sx(125), self._sy(550), self._sx(175), self._sy(600)],
@@ -65,8 +102,6 @@ class Animation:
         }
 
         self.objects = [self._storage_object_to_animation_object(obj) for obj in self.storage_objects]
-
-        self.storage_offset = self._sx(985)
 
         self.robot_positions = [
             # Robot 0's positions
@@ -95,48 +130,19 @@ class Animation:
         self._create_objects()
         self._create_robot_arms()
 
-    def on_resize(self, event):
-        self.canvas.delete("all")
-        self.width_scale = event.width / self.original_canvas_width
-        self.height_scale = event.height / self.original_canvas_height
-        self.canvas_has_been_resized = True
-        self._initialize_canvas_values()
-
-    def set_info_dt(self, info):
-        if self.canvas_has_been_resized:
-            self.info_dt = info
-
-            # Dont animate anything if we are in setup
-            if info["robots"][0][0].key != "Setup" and info["robots"][1][0].key != "Setup":
-                # Animate the robot
-                for robot_id, robot in enumerate(self.info_dt["robots"]):
-                    origin = robot[0].origin
-                    destination = robot[0].destination
-
-                    self._animate_robot_frame(origin, destination, robot_id, robot[1])
-
-                # Animate the objects
-                for info in self.info_dt["objects"]:
-                    (shape, color), (state, progress), storage_index = info
-                    self._animate_object(shape, color, state, progress, storage_index)
-
+    # Animate the object to either be in the correct storage or follow the robot
     def _animate_object(self, shape, color, state, progress, storage_index):
         origin = state.origin
 
         animation_object = self._get_animation_object(shape, color)
 
         if origin == "Storage":
-            animation_object.storage_position = self.get_storage_position(shape, storage_index, state.id)
+            animation_object.storage_position = self._get_storage_position(shape, storage_index, state.id)
             if shape == ObjectShape.CIRCLE:
                 x, y = animation_object.storage_position
-                # if state.id == 1:
-                #     x += self.storage_offset
                 self.canvas.coords(animation_object.canvas_ref, x - self._sx(25), y - self._sy(25), x + self._sx(25), y + self._sy(25))
             elif shape == ObjectShape.SQUARE:
                 x1, y1, x2, y2 = animation_object.storage_position
-                # if state.id == 1:
-                #     x1 += self.storage_offset
-                #     x2 += self.storage_offset
                 self.canvas.coords(animation_object.canvas_ref, x1, y1, x2, y2)
         elif origin == "Conveyor":
             start_x, start_y = self.robot_positions[int(not state.id)]["Place_Conveyor"]
@@ -151,56 +157,35 @@ class Animation:
             x, y = self.robot_positions[state.id]["Pickup_Conveyor"]
             self.canvas.coords(animation_object.canvas_ref, x - self._sx(25), y - self._sy(25), x + self._sx(25), y + self._sy(25))
 
-    def _get_animation_object(self, shape, color):
-        for obj in self.objects:
-            if obj.shape == shape and obj.color == color:
-                return obj
+    # Function to retrive canvas position based on storage and robot index
+    def _get_storage_position(self, shape, storage_index, robot_index):
+        cx, cy = (0, 0)
 
-    def _create_circle(self, cx, cy, r, **kwargs):
-        return self.canvas.create_oval(cx - r, cy - r, cx + r, cy + r, **kwargs)
+        # Get storage position
+        if robot_index == 0:
+            cx, cy = (150, 525)
+        elif robot_index == 1:
+            cx, cy = (1135, 525)
 
-    def _storage_object_to_animation_object(self, object):
-        return AnimationObject(
-            object.name,
-            object.shape,
-            object.color,
-            ObjectStates[f"Storage_{object.position[-1]}"],
-            self.object_to_index[(object.shape, object.color)],
-            self.get_storage_position(object.shape, self.object_to_index[(object.shape, object.color)], self.object_to_robot_id[(object.shape, object.color)]),
-        )
+        # Get correct vertical position
+        if storage_index in [0, 1]:
+            cy -= 67.5
+        elif storage_index in [2, 3]:
+            cy += 67.5
 
-    def _connect_head_to_base(self, robot_id):
-        x1, y1, x2, y2 = self.canvas.coords(self.animation_robots[robot_id].head)
-        cx = (x1 + x2) / 2
-        cy = (y1 + y2) / 2
-        x0, y0 = self.animation_robots[robot_id].base
-        y_diff = cy - y0
-        x_diff = cx - x0
+        # Get correct horizontal position
+        if storage_index in [0, 2]:
+            cx -= 67.5
+        elif storage_index in [1, 3]:
+            cx += 67.5
 
-        # 1. Calculate the angle of the arm itself
-        arm_angle = atan2(y_diff, x_diff)
+        # Return 4 position if square and 2 if circle
+        if shape == ObjectShape.SQUARE:
+            return [self._sx(cx - 25), self._sy(cy - 25), self._sx(cx + 25), self._sy(cy + 25)]
+        elif shape == ObjectShape.CIRCLE:
+            return [self._sx(cx), self._sy(cy)]
 
-        # 2. The perpendicular angle (for the width/thickness)
-        # This is always 90 degrees (pi/2) offset from the arm
-        orth_angle = arm_angle + (pi / 2)
-
-        # 3. Calculate the offset vector based on your desired thickness
-        thickness = self._sx(20)
-        dx_orth = cos(orth_angle) * thickness
-        dy_orth = sin(orth_angle) * thickness
-
-        # 4. Define the 4 corners of the rectangle
-        # Points at the "head" (cx, cy)
-        point1 = [cx + dx_orth, cy + dy_orth]
-        point2 = [cx - dx_orth, cy - dy_orth]
-
-        # Points at the "base" (x0, y0)
-        point3 = [x0 - dx_orth, y0 - dy_orth]
-        point4 = [x0 + dx_orth, y0 + dy_orth]
-
-        points = [*point1, *point2, *point3, *point4]
-        self.canvas.coords(self.animation_robots[robot_id].arm, *points)
-
+    # Animate the robot to be a the correct spot
     def _animate_robot_frame(self, origin, destination, robot_id, progress):
         r = self._sx(20)
         x, y = (0, 0)
@@ -218,6 +203,32 @@ class Animation:
 
         self._connect_head_to_base(robot_id)
 
+    # Connect the robot head to the base
+    def _connect_head_to_base(self, robot_id):
+        x1, y1, x2, y2 = self.canvas.coords(self.animation_robots[robot_id].head)
+        cx = (x1 + x2) / 2
+        cy = (y1 + y2) / 2
+        x0, y0 = self.animation_robots[robot_id].base
+        y_diff = cy - y0
+        x_diff = cx - x0
+
+        arm_angle = atan2(y_diff, x_diff)
+        orth_angle = arm_angle + (pi / 2)
+
+        thickness = self._sx(20)
+        dx_orth = cos(orth_angle) * thickness
+        dy_orth = sin(orth_angle) * thickness
+
+        point1 = [cx + dx_orth, cy + dy_orth]
+        point2 = [cx - dx_orth, cy - dy_orth]
+
+        point3 = [x0 - dx_orth, y0 - dy_orth]
+        point4 = [x0 + dx_orth, y0 + dy_orth]
+
+        points = [*point1, *point2, *point3, *point4]
+        self.canvas.coords(self.animation_robots[robot_id].arm, *points)
+
+    # Initialize the things in the canvas
     def _create_robot_arms(self):
         # Robot 0 base (static parts of robot)
         self.canvas.create_polygon(self._sx(50), self._sy(100), self._sx(250), self._sy(100), self._sx(250), self._sy(300), self._sx(50), self._sy(300), fill="#4167B6")
@@ -248,33 +259,6 @@ class Animation:
         # Raise the heads to always stay on top of everything
         self.canvas.tag_raise(self.animation_robots[0].head)
         self.canvas.tag_raise(self.animation_robots[1].head)
-
-    def get_storage_position(self, shape, storage_index, robot_index):
-        cx, cy = (0, 0)
-
-        # Get storage position
-        if robot_index == 0:
-            cx, cy = (150, 525)
-        elif robot_index == 1:
-            cx, cy = (1135, 525)
-
-        # Get correct vertical position
-        if storage_index in [0, 1]:
-            cy -= 67.5
-        elif storage_index in [2, 3]:
-            cy += 67.5
-
-        # Get correct horizontal position
-        if storage_index in [0, 2]:
-            cx -= 67.5
-        elif storage_index in [1, 3]:
-            cx += 67.5
-
-        # Return 4 position if square and 2 if circle
-        if shape == ObjectShape.SQUARE:
-            return [self._sx(cx - 25), self._sy(cy - 25), self._sx(cx + 25), self._sy(cy + 25)]
-        elif shape == ObjectShape.CIRCLE:
-            return [self._sx(cx), self._sy(cy)]
 
     def _create_objects(self):
         for obj in self.objects:
@@ -312,3 +296,28 @@ class Animation:
         self._create_circle(self._sx(450), self._sy(403), self._sx(17), fill="#61130B", outline="")
         self.canvas.create_rectangle(self._sx(435), self._sy(345), self._sx(465), self._sy(395), fill="#CC9C3F", outline="")
         self.canvas.create_rectangle(self._sx(430), self._sy(385), self._sx(470), self._sy(405), fill="black", outline="")
+
+    #
+    #
+    # Public functions
+    #
+    #
+
+    # Update the animation based on info from the DT
+    def set_info_dt(self, info):
+        if self.canvas_has_been_resized:
+            self.info_dt = info
+
+            # Dont animate anything if we are in setup
+            if info["robots"][0][0].key != "Setup" and info["robots"][1][0].key != "Setup":
+                # Animate the robot
+                for robot_id, robot in enumerate(self.info_dt["robots"]):
+                    origin = robot[0].origin
+                    destination = robot[0].destination
+
+                    self._animate_robot_frame(origin, destination, robot_id, robot[1])
+
+                # Animate the objects
+                for info in self.info_dt["objects"]:
+                    (shape, color), (state, progress), storage_index = info
+                    self._animate_object(shape, color, state, progress, storage_index)
