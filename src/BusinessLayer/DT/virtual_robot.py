@@ -119,8 +119,6 @@ class VirtualRobot:
             raise Exception(f"Unknown anomaly: {anomaly}")
 
     def step(self, objec_at_drop_off: bool, object_at_ir: bool) -> tuple[VirtualObject | None, str | None, bool | None] | None:
-        if self.id == 0:
-            print(f"status: {self.conveyor.get_info()}")
         # If in setup dont do anything
         if self.state.key == "Setup":
             return None

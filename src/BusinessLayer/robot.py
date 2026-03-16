@@ -45,7 +45,8 @@ class RobotArm:
         return self.IR
 
     def _start_conveyorbelt(self) -> None:
-        self.robot.run_conveyor(self.conveyor_id, speed=self.conveyor_speed, direction=ConveyorDirection.BACKWARD)
+        # self.robot.run_conveyor(self.conveyor_id, speed=self.conveyor_speed, direction=ConveyorDirection.BACKWARD)
+        self.robot.run_conveyor(self.conveyor_id, speed=0, direction=ConveyorDirection.BACKWARD)
 
     def set_mitigation_mode(self, value) -> None:
         self.mitigation_mode = value
