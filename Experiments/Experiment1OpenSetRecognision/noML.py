@@ -61,10 +61,10 @@ class ImageProcessing:
         # 5. Optional: Convert back to 0/1 scale if your other functions expect it
         return (mask / 255).astype(np.uint8)
 
-    def _closing_on_image(self, image: np.ndarray, disk_size: int) -> np.ndarray:
+    def _opening_on_image(self, image: np.ndarray, disk_size: int) -> np.ndarray:
         SE = disk(disk_size)
 
-        # Closing
+        # opening
         return dilation(erosion(image, SE), SE)
 
     def _get_perimeter_and_area_of_biggest_object(self, image: np.ndarray) -> tuple[float, float] | None:
@@ -80,6 +80,8 @@ class ImageProcessing:
         cnt = max(contours, key=cv2.contourArea)
         area = cv2.contourArea(cnt)
         perimeter_size = cv2.arcLength(cnt, True)
+
+        # print(area, perimeter_size)
 
         return (area, perimeter_size)
 
@@ -139,6 +141,7 @@ class ImageProcessing:
 
     def classify(self) -> str:
         cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/original.jpg", self.image)
+
         cropped_image = self._crop_and_warp(self.image)
         cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/cropped_image.jpg", cropped_image)
         hsv_image = self._create_hsv_image(cropped_image)
@@ -146,12 +149,20 @@ class ImageProcessing:
         cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/hue.jpg", hue)
         cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/value.jpg", value)
 
+        # plt.hist(value.ravel(), bins=256, range=[0, 256])
+        # plt.title("Histogram of Red Circle")
+        # plt.xlabel("Brightness")
+        # plt.ylabel("Pixel Count")
+        # plt.axvline(x=130, color="r", linestyle="--", linewidth=2, label="Threshold (130)")
+        # plt.legend()
+        # plt.show()
+
         threshold = 120
         binary_image = self._create_binary_image(value, threshold)
         cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/binary_image.jpg", binary_image * 255)
 
-        disk_size = 4
-        closed_image = self._closing_on_image(binary_image, disk_size)
+        disk_size = 3
+        closed_image = self._opening_on_image(binary_image, disk_size)
         cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/closed_image.jpg", closed_image * 255)
 
         stats = self._get_perimeter_and_area_of_biggest_object(closed_image)

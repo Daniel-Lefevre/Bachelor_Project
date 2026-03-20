@@ -2,7 +2,7 @@ import os
 
 import cv2
 import numpy as np
-from noML import ImageProcessing
+from noML_V2 import ImageProcessing
 
 # ROBOT_0_SRC_Training = np.array([[174, 11], [417, 82], [463, 357], [220, 387]], dtype=np.float32)
 ROBOT_0_SRC_TEST = np.array([[170, 131], [421, 102], [463, 376], [207, 417]], dtype=np.float32)
@@ -48,24 +48,24 @@ if __name__ == "__main__":
     path_1 = os.path.join(script_dir, "Training_Data/No_Object/11.jpg")
     background_image_0 = cv2.imread(path_0)
     background_image_1 = cv2.imread(path_1)
-    image_processor_0 = ImageProcessing(src_points_robot_0)
-    image_processor_1 = ImageProcessing(src_points_robot_1)
+    image_processor_0 = ImageProcessing(src_points_robot_0, background_image_0)
+    image_processor_1 = ImageProcessing(src_points_robot_1, background_image_1)
 
     manual_image_path = os.path.join(script_dir, "Test_Data/No_Object/11.jpg")
     # inspect_image(manual_image_path, 1)
 
     labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square", "No_Object", "Unidentified_Object"]
-    labels = ["Green_Square"]
+    labels = ["No_Object"]
 
     correctly_labeled_images = 0
     falsy_labeled_images = 0
 
     for label in labels:
         print(label)
-        number_of_image = 36 if label == "Unidentified_Object" else 20
+        number_of_image = 20 if label == "Unidentified_Object" else 6
         for i in range(number_of_image):
             if i == 1:
-                image_path = os.path.join(script_dir, "Test_Data", label, f"{i + 1}.jpg")
+                image_path = os.path.join(script_dir, "Validation_Data", label, f"{i + 1}.jpg")
                 if i < number_of_image / 2:
                     image_processor_0.set_image(image_path)
                     return_label = image_processor_0.classify()

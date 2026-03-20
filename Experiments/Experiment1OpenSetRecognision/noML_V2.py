@@ -68,10 +68,6 @@ class ImageProcessing:
         return cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
     def _create_binary_image(self, hsv_image: np.ndarray, threshold: int) -> np.ndarray:
-        # 1. Threshold to 255 (standard OpenCV 8-bit white)
-        cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/test1.png", hsv_image)
-        cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/test2.png", self.background_image)
-
         _, s1, v1 = cv2.split(hsv_image)
         _, s2, v2 = cv2.split(self.background_image)
         saturation = cv2.absdiff(s1, s2).astype(np.uint8)
@@ -82,7 +78,7 @@ class ImageProcessing:
 
         _, binary_threshold_combi = cv2.threshold(self._crop_and_warp(combi, noise=False), 50, 255, cv2.THRESH_BINARY)
         binary_threshold_combi_closed = self._closing_on_image(binary_threshold_combi, (6, 6))
-        cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/binary_threshold_combi.png", binary_threshold_combi_closed)
+        # cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/binary_threshold_combi.png", binary_threshold_combi_closed)
         cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/cropped_combi.png", cropped_combi)
         # cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/value.png", value)
         # cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/saturation.png", saturation)
@@ -235,7 +231,11 @@ class ImageProcessing:
     def classify(self) -> str:
         # cropped_image = self._crop_and_warp()
         hsv_image = self._create_hsv_image(self.image)
-        hue, _, _ = cv2.split(self._crop_and_warp(hsv_image, noise=False))
+        hue, saturation, value = cv2.split(self._crop_and_warp(hsv_image, noise=False))
+
+        cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/hue.png", hue)
+        cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/saturation.png", saturation)
+        cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/value.png", value)
 
         threshold = 30
         binary_image_closed = self._create_binary_image(hsv_image, threshold)
