@@ -1,4 +1,4 @@
-path: ./dataset_robot_0 # root directory
+path: C:/Users/danie/OneDrive/Skrivebord/Rep/Bachelor_Project/Experiments/Experiment2ObjectFinder/dataset_robot_0
 train: Training_Data/images
 val: Validation_Data/images
 
