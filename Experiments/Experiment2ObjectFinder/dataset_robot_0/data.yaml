@@ -1,0 +1,6 @@
+path: ./dataset_robot_0 # root directory
+train: Training_Data/images
+val: Validation_Data/images
+
+nc: 1 # number of classes
+names: ["object"]
