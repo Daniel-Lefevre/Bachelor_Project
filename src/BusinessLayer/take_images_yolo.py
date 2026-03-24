@@ -90,7 +90,7 @@ counter = 1
 
 while True:
     if keyboard.is_pressed("1"):
-        take_and_store_image(0, counter, robot_0)
-        take_and_store_image(1, counter, robot_1)
+        # take_and_store_image(0, counter, robot_0)
+        # take_and_store_image(1, counter, robot_1)
         time.sleep(1)
         counter += 1
