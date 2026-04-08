@@ -48,10 +48,11 @@ class GUI:
 
         # Make the grid cells expand
         grid_configs = [2, 1, 1, 2]
+        row_configs = [51, 49]
         for i in range(4):
             self.root.grid_columnconfigure(i, weight=grid_configs[i])
         for i in range(2):
-            self.root.grid_rowconfigure(i, weight=1)
+            self.root.grid_rowconfigure(i, weight=row_configs[i], uniform="row_group")
 
         # Create the terminal fro anomaly logs
         self._create_anomaly_log()
@@ -103,10 +104,18 @@ class GUI:
         dt_frame.grid(row=1, column=2, sticky="news", padx=15, pady=15)
 
     def _create_anomaly_log(self):
-        self.log_frame = ctk.CTkFrame(self.root, fg_color=self.box_color, corner_radius=10)
-        self.log_frame.pack_propagate(False)
+        # Change CTkFrame to CTkScrollableFrame
+        self.log_frame = ctk.CTkScrollableFrame(
+            self.root,
+            fg_color=self.box_color,
+            corner_radius=10,
+            label_fg_color=self.box_color,
+            label_text="Logs",  # Optional: Adds a built-in header
+            label_font=("Arial", 16, "bold"),
+            label_text_color=self.title_color,
+        )
 
-        ctk.CTkLabel(self.log_frame, text="Logs", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 10))
+        # Grid placement remains the same
         self.log_frame.grid(row=1, column=3, sticky="news", padx=15, pady=15)
 
     # Function to "color" a black icon to white
@@ -179,14 +188,22 @@ class GUI:
     # Add log message to the log terminal
     def _add_log(self, anomaly_log_object):
         time, actor, anomaly_text = anomaly_log_object
+        if actor == 1 or actor == 0:
+            actor = f"Robot {actor}"
         text = f"[{time}] {actor} - {anomaly_text}"
 
-        label = ctk.CTkLabel(self.log_frame, text=text, anchor="w", justify="left")
+        # Create the label inside the scrollable frame
+        label = ctk.CTkLabel(self.log_frame, text=text, anchor="w", justify="left", text_color=self.text_color)
         label.pack(fill="x", padx=10, pady=2)
 
-        # Auto-adjust wraplength to frame width
+        # Wrap text based on the width of the scrollable area
+        # Note: Using 30-40 offset to account for the scrollbar width
         self.log_frame.update_idletasks()
-        label.configure(wraplength=self.log_frame.winfo_width() - 20)
+        label.configure(wraplength=self.log_frame.winfo_width() - 40)
+
+        children = self.log_frame.winfo_children()
+        if len(children) > 100:  # Keep last 100 logs
+            children[0].destroy()
 
     # Update the storage objects based on information from system
     def _update_storage_objects(self):

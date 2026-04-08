@@ -18,7 +18,7 @@ def take_and_store_image(robot_index, counter, robot):
     if img_compressed:
         # Uncompress and save the image
         img = uncompress_image(img_compressed)
-        base_dir = r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment3Regression\Training_Data\Conveyor_0"
+        base_dir = r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment3Regression\Test_Data\Conveyor_1"
         dynamic_folder = f"Robot_{robot_index}"
         filename = str(counter) + ".jpg"
 

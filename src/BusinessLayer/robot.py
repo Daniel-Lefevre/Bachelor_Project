@@ -162,8 +162,8 @@ class RobotArm:
                 target_pose.y -= 0.0095
                 target_pose.z += 0.005
             elif self.ID == 1:
-                target_pose.x += 0.013
-                target_pose.y += 0.013
+                target_pose.x += 0.018
+                target_pose.y += 0.018
                 target_pose.z += 0.005
         return target_pose
 
@@ -324,7 +324,7 @@ class RobotArm:
                 elif time.time() - start_time > 1:
                     self._start_conveyorbelt()
 
-                time.sleep(0.05)
+                time.sleep(0.01)
 
             self._stop_conveyorbelt()
             self.ready_to_drop = False
@@ -341,10 +341,12 @@ class RobotArm:
                 self.pick_and_place_first_try = False
                 # Robot arm has failed to pickup object from the conveyor, cast anomaly 4
                 self.anomaly_updates.append(("Anomaly 4", (self.ID, shape, color)))
+                self.remove_object_from_storage(shape, color)
                 self._release_with_tool()
                 self._find_and_move_object(workspace, shape, color, None)
                 return
             else:
+                self.remove_object_from_storage(shape, color)
                 self.anomaly_updates.append(("Anomaly 4 Mitigation failed",))
                 return
 

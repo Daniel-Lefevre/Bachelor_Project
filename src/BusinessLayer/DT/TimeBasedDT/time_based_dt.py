@@ -117,7 +117,6 @@ class TimeBasedDT:
         for robot_id in range(len(self.virtual_robots)):
             virtual_robot = self.virtual_robots[robot_id]
 
-
             # Check if there is an object in the robots drop off zone on the conveyor
             conveyor_id = int(not robot_id)
             object_at_drop_off = self._check_virtual_objects_drop_off_state(conveyor_id)
@@ -178,6 +177,7 @@ class TimeBasedDT:
         if eventype == "Pick Up":
             self.events.put((eventype, self._object_to_virtual_object(event_param)))
         else:
+            print("???????????????????????????????")
             self.events.put((eventype, event_param))
 
     def set_rules(self, rules: list[dict]) -> None:
@@ -215,5 +215,7 @@ class TimeBasedDT:
 
         animation_info["robots dropping object"] = self.robots_dropping_objects.copy()
         self.robots_dropping_objects = []
+
+        self.anomaly_log_messages = []
 
         return (animation_info, anomaly_logs)
