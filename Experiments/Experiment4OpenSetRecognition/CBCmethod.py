@@ -395,7 +395,7 @@ if __name__ == "__main__":
                 for label in labels:
                     number_of_images = test_label_count[label]
                     for i in range(number_of_images):
-                        path = os.path.join(script_dir, "Test_data", label, f"{i + 1}.jpg")
+                        path = os.path.join(script_dir, "Test_Data", label, f"{i + 1}.jpg")
 
                         if not os.path.exists(path):
                             continue
