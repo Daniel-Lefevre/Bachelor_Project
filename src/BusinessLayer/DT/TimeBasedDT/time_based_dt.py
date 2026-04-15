@@ -177,7 +177,6 @@ class TimeBasedDT:
         if eventype == "Pick Up":
             self.events.put((eventype, self._object_to_virtual_object(event_param)))
         else:
-            print("???????????????????????????????")
             self.events.put((eventype, event_param))
 
     def set_rules(self, rules: list[dict]) -> None:

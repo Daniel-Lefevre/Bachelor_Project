@@ -19,7 +19,7 @@ def take_and_store_image(robot_index, label, robots, filename):
     if img_compressed:
         # Uncompress and save the image
         img = uncompress_image(img_compressed)
-        base_dir = r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Validation_Data"
+        base_dir = r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Training_Data"
         dynamic_folder = label
         filename = str(filename) + ".jpg"
 
@@ -49,8 +49,8 @@ print("Calibrating...")
 robot_0.calibrate_auto()
 robot_1.calibrate_auto()
 
-place_conveyor_0, observation_pose_conveyor_0, observation_pose_storage_0, standby_position_0 = configuration["positions"][0]
-place_conveyor_1, observation_pose_conveyor_1, observation_pose_storage_1, standby_position_1 = configuration["positions"][1]
+place_conveyor_0, observation_0, observation_pose_storage_0, standby_position_0, observation_pose_conveyor_0 = configuration["positions"][0]
+place_conveyor_1, observation_1, observation_pose_storage_1, standby_position_1, observation_pose_conveyor_1 = configuration["positions"][1]
 
 
 robot_0.move_pose(*observation_pose_conveyor_0)
@@ -86,7 +86,7 @@ for ip in robot_IPs:
     print(_enable_camera(ip))
 
 labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square", "No_Object", "Unidentified_Object"]
-label_counter = {"Blue_Circle": 0, "Blue_Square": 0, "Red_Circle": 0, "Red_Square": 0, "Green_Circle": 0, "Green_Square": 0, "No_Object": 0, "Unidentified_Object": 0}
+label_counter = {"Blue_Circle": 100, "Blue_Square": 100, "Red_Circle": 100, "Red_Square": 100, "Green_Circle": 100, "Green_Square": 100, "No_Object": 100, "Unidentified_Object": 125}
 
 while True:
     # Robot 0 Blue Circle

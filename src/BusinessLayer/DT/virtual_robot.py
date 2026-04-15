@@ -64,7 +64,7 @@ class VirtualRobot:
         elif self.state.key in ["Place_Conveyor_to_Observation", "Place_Storage_to_Observation"]:
             self.state = self.states["Observation"]
 
-        elif self.state.key == "Observation_to_Pickup_Conveyor":
+        elif self.state.key == "Workspace_Observation_to_Pickup_Conveyor":
             self.state = self.states["Pickup_Conveyor_to_Observation"]
             picked_up = True
 
@@ -80,6 +80,9 @@ class VirtualRobot:
             self.state = self.states["Place_Storage_to_Observation"]
             placed_position = "Storage"
             self.storage.add_object(self.working_object.shape, self.working_object.color)
+
+        elif self.state.key == "Observation_to_Workspace_Observation":
+            self.state = self.states["Workspace_Observation_to_Pickup_Conveyor"]
 
         self.current_state_progress = 0
         self.current_state_progress_goal = self.state.time
@@ -102,14 +105,14 @@ class VirtualRobot:
     def handle_anomaly(self, anomaly: str):
         if anomaly == "Anomaly 4":
             if self.state.key in ["Pickup_Conveyor_to_Observation", "Observation_to_Standby", "Observation_to_Place_Storage"]:
-                self.state = self.states["Observation_to_Pickup_Conveyor"]
+                self.state = self.states["Workspace_Observation_to_Pickup_Conveyor"]
                 self.current_state_progress = 0
                 self.current_state_progress_goal = self.state.time
             else:
                 raise Exception(f"Wrong state for anomaly 4 {self.state}")
         elif anomaly == "Anomaly 11":
-            if self.state.key in ["Place_Storage_to_Observation", "Place_Conveyor_to_Observation", "Observation", "Observation_to_Pickup_Conveyor"]:
-                self.state = self.states["Observation_to_Pickup_Conveyor"]
+            if self.state.key in ["Place_Storage_to_Observation", "Place_Conveyor_to_Observation", "Observation", "Workspace_Observation_to_Pickup_Conveyor"]:
+                self.state = self.states["Workspace_Observation_to_Pickup_Conveyor"]
                 self.current_state_progress = 0
                 self.current_state_progress_goal = self.state.time
             else:
@@ -125,8 +128,11 @@ class VirtualRobot:
 
         if self.state.key == "Observation" and not self.queue.empty():
             self.working_object = self.queue.get()
-            destination = "Conveyor" if self.working_object.state.origin == "IR" else self.working_object.state.origin
-            self.state = self.states[f"Observation_to_Pickup_{destination}"]
+            if self.working_object.state.origin == "IR":
+                self.state = self.states["Observation_to_Workspace_Observation"]
+            else:
+                self.state = self.states["Observation_to_Pickup_Storage"]
+
             self.current_state_progress_goal = self.state.time
             self.current_state_progress = 0
 

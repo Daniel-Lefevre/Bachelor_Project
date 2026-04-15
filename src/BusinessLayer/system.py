@@ -5,8 +5,6 @@ import threading
 import time
 from typing import TYPE_CHECKING
 
-import keyboard
-
 from resources.environment import StorageObject, configuration
 from src.BusinessLayer.DT.dt_runner import DTRunner
 from src.BusinessLayer.robot import RobotArm
@@ -55,27 +53,6 @@ class System:
         # Disconnect when not running
         arm.disconnect()
         print("Everything has been shut down")
-
-    # THIS NEEDS TO BE REMOVED !!!!!!!!!!!!!!
-    def _startup_robots_loop(self) -> None:
-        while self.running:
-            # Robot 0 take image
-            if keyboard.is_pressed("9"):
-                self.robot_arms[0].take_image()
-                time.sleep(0.5)
-
-            # Robot 1 take image
-            elif keyboard.is_pressed("2"):
-                self.robot_arms[1].take_image()
-                time.sleep(0.5)
-
-            time.sleep(0.05)
-
-        #     # Wait for the threads to finnish their task before shutting down
-        for t in self.threads:
-            t.join()
-
-    # THIS NEEDS TO BE REMOVED !!!!!!!!!!!!!!
 
     # Updates storage object to its new position
     def _update_object(self, shape: ObjectShape, color: ObjectColor, position: str) -> None:
@@ -194,6 +171,17 @@ class System:
 
             time.sleep(0.1)
 
+    def _image_listener(self) -> None:
+        while self.running:
+            for robot_id in range(len(self.robot_arms)):
+                image = self.robot_arms[robot_id].get_latest_image()
+                if image is not None:
+                    with self.lock:
+                        event_param = (image, robot_id)
+                        self.DT.create_event(("Image", event_param))
+
+            time.sleep(0.1)
+
     #
     #
     # Public functions
@@ -205,6 +193,13 @@ class System:
         print("STOP")
         self.running = False
         self.DT.stop_dt()
+
+        # Wait for the threads to finnish their task before shutting down
+        current_thread = threading.current_thread()
+        if hasattr(self, "threads"):
+            for t in self.threads:
+                if t is not current_thread:
+                    t.join()
 
     # Setup all the listeners in system
     def set_up(self) -> None:
@@ -225,7 +220,9 @@ class System:
         self.threads.append(t_anomaly)
         t_anomaly.start()
 
-        self._startup_robots_loop()
+        t_image = threading.Thread(target=self._image_listener)
+        self.threads.append(t_image)
+        t_image.start()
 
     # Gets the most current storage objects from the robotarms and returns them
     def get_objects(self) -> list[StorageObject]:

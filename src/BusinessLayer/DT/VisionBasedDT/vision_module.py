@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from pyniryo import ObjectColor, ObjectShape
 from torchvision import transforms
 from torchvision.models import resnet18
 from ultralytics import YOLO
@@ -41,6 +42,9 @@ class VisionModule:
         return model
 
     def _detect_object(self, image: np.ndarray, robot_id: int) -> list[tuple[np.ndarray, tuple[float, float]]]:
+        buffer = 10
+        max_x = 639
+        max_y = 479
 
         detector = self.robot_0_detection_module if robot_id == 0 else self.robot_1_detection_module
 
@@ -52,8 +56,30 @@ class VisionModule:
             boxes = result.boxes
             for box in boxes:
                 x1, y1, x2, y2 = box.xyxy[0].int().tolist()
-                cropped_img = image[y1:y2, x1:x2]
-                cropped_images_and_centers.append((cropped_img, ((x2 - x1) / 2 + x1), ((y2 - y1) / 2 + y1)))
+                h = abs(y2 - y1)
+                w = abs(x2 - x1)
+                y = y1
+                x = x1
+
+                # Crop the image using NumPy slicing: img[y1:y2, x1:x2]
+                y_lower = y - buffer
+                if y_lower < 0:
+                    y_lower = 0
+
+                y_higher = y + h + buffer
+                if y_higher > max_y:
+                    y_higher = max_y
+
+                x_lower = x - buffer
+                if x_lower < 0:
+                    x_lower = 0
+
+                x_higher = x + w + buffer
+                if x_higher > max_x:
+                    x_higher = max_x
+
+                cropped_img = image[y_lower:y_higher, x_lower:x_higher]
+                cropped_images_and_centers.append((cropped_img, ((x2 - x1) / 2 + x1, (y2 - y1) / 2 + y1)))
 
         return cropped_images_and_centers
 
@@ -84,7 +110,7 @@ class VisionModule:
 
         return predicted_class
 
-    def _object_regression(self, center: tuple[float, float], robot_id: int) -> float:
+    def _object_regression(self, center: tuple[float, float], robot_id: int) -> tuple[int, float]:
         robot_0_threshold = 292
         robot_1_threshold = 241
 
@@ -92,6 +118,7 @@ class VisionModule:
 
         object_position_on_conveyor_cm = 0
 
+        conveyor_id = None
         if robot_id == 0:
             conveyor_id = 1 if x_pos < robot_0_threshold else 0
             if conveyor_id == 0:
@@ -108,20 +135,59 @@ class VisionModule:
         progress = (object_position_on_conveyor_cm - 9) / 48
         progress = 0 if progress < 0 else progress
         progress = 1 if progress > 1 else progress
-        return progress
+        return (conveyor_id, progress)
+
+    def _convert_string_to_object(self, predicted_class_name) -> tuple[ObjectShape, ObjectColor]:
+        parts = predicted_class_name.split("_")
+        shape = ObjectShape.SQUARE if parts[1] == "Square" else ObjectShape.CIRCLE
+        color = ObjectColor.RED if parts[0] == "Red" else ObjectColor.BLUE if parts[0] == "Blue" else ObjectColor.GREEN == "Green"
+        return (shape, color)
 
     #
     # Public functions
     #
 
-    def process_image(self, image: np.ndarray, robot_id: int) -> list[str, float]:
+    def process_image(self, image: np.ndarray, robot_id: int) -> dict[tuple[ObjectShape, ObjectColor], tuple[int, float]]:
         cropped_images_and_centers = self._detect_object(image, robot_id)
 
-        classified_objects_and_progress = []
+        classified_objects_and_progress = {}
 
         for cropped_object, center in cropped_images_and_centers:
             predicted_class_name = self._classify_object(cropped_object)
-            progress = self._object_regression(center, robot_id)
-            classified_objects_and_progress.append((predicted_class_name, progress))
+            classified_objects_and_progress[self._convert_string_to_object(predicted_class_name)] = self._object_regression(center, robot_id)
 
         return classified_objects_and_progress
+
+
+# if __name__ == "__main__":
+#     vision_module = VisionModule()
+#     current_dir = os.path.dirname(os.path.abspath(__file__))
+#     TEST_POINTS_CONVEYOR_DISTANCE = (np.array([[26, 16.5, 43.5, 27, 22.5, 27, 51.5, 26, 40.5, 47.5], [21, 14.5, 37, 9.5, 52, 28.5, 45, 11, 33.5, 58]]) - 9) / 48
+#     OBEJCTS = [
+#         ["Red_Square", "Red_Circle", "Blue_Square", "Green_Square", "Red_Circle", "Blue_Circle", "Green_Square", "Green_Circle", "Blue_Square", "Green_Square"],
+#         ["Blue_Circle", "Green_Circle", "Red_Square", "Green_Square", "Red_Circle", "Blue_Square", "Green_Square", "Red_Square", "Green_Circle", "Blue_Circle"],
+#     ]
+
+#     for robot_id in [0, 1]:
+#         for conveyor_id in [0, 1]:
+#             for image_id in range(1, 11):
+#                 print(f"Image {image_id}")
+#                 image_path = os.path.abspath(os.path.join(current_dir, "..", "..", "..", "..", "Experiments", "Experiment3Regression", "Test_Data", f"Conveyor_{conveyor_id}", f"Robot_{robot_id}", f"{image_id}.jpg"))
+
+#                 # Load the image as BGR and convert to RGB
+#                 image_bgr = cv2.imread(image_path)
+#                 image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+
+#                 correct_distance = TEST_POINTS_CONVEYOR_DISTANCE[conveyor_id][image_id - 1]
+#                 correct_classifiaction = OBEJCTS[conveyor_id][image_id - 1]
+#                 predictions = vision_module.process_image(image_rgb, robot_id)
+
+#                 if len(predictions) != 1:
+#                     print(f"Fail. {len(predictions)} Objects were found:")
+#                     print(predictions)
+#                 else:
+#                     predicted_classifiaction, predicted_distance = predictions[0]
+#                     if predicted_classifiaction != correct_classifiaction:
+#                         print(f"Object {correct_classifiaction} classified as {predicted_classifiaction}")
+#                     if abs(predicted_distance - correct_distance) > 2:
+#                         print(f"Distance {correct_distance} predicted as {predicted_distance}")

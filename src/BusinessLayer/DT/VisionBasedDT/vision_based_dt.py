@@ -9,19 +9,25 @@ from pyniryo import ObjectColor, ObjectShape
 from resources.environment import configuration
 from src.BusinessLayer.DT.virtual_object import VirtualObject
 from src.BusinessLayer.DT.virtual_robot import VirtualRobot
+from src.BusinessLayer.DT.VisionBasedDT.conveyor_cache import ConveyorCache
+from src.BusinessLayer.DT.VisionBasedDT.vision_module import VisionModule
 
 if TYPE_CHECKING:
     from resources.environment import StorageObject
 
 
-class TimeBasedDT:
-    def __init__(self, step_size: int):
+class VisionBasedDT:
+    def __init__(self, step_size: float):
         self.step_size = step_size
         self.virtual_objects = [self._object_to_virtual_object(obj) for obj in configuration["StorageObjects"]]
         self.events = Queue()
         self.virtual_robots = [VirtualRobot(id, self.step_size) for id in range(configuration["NumberOfRobotArms"])]
         self.robots_dropping_objects = []
         self.anomaly_log_messages = []
+        self.vision_module = VisionModule()
+        self.vision_progress_buffer = 0.1
+        self.conveyor_0_cahce = ConveyorCache(self.step_size)
+        self.conveyor_1_cahce = ConveyorCache(self.step_size)
 
     #
     #
@@ -74,6 +80,39 @@ class TimeBasedDT:
             elif event_type == "Setup done":
                 for robot in self.virtual_robots:
                     robot.exit_setup()
+
+            elif event_type == "Image":
+                image, robot_id = event_param
+                classified_objects_and_progress = self.vision_module.process_image(image, robot_id)
+
+                for virtual_object in self.virtual_objects:
+                    # Check if the virtual DT object is expected in the image
+                    if virtual_object.get_state().origin == "Conveyor":
+                        # Check if the object is in the image
+                        if (virtual_object.shape, virtual_object.color) in classified_objects_and_progress:
+                            conveyor_id, progress = classified_objects_and_progress[(virtual_object.shape, virtual_object.color)]
+                            # Check if object is on the correct conveyor
+                            if virtual_object.get_state().id == conveyor_id:
+                                # Check if the progress is correct
+                                if abs(virtual_object.get_progress() - progress) <= self.vision_progress_buffer:
+                                    # The DT virtual object matches the object in the image
+                                    continue
+                                # Object is at the wrong place on the conveyor
+                                else:
+                                    # Anomlies: 1, 2, 7
+                                    pass
+
+                            # Objects was not on the correct conveyor
+                            else:
+                                pass
+
+                        # Object was not in image
+                        else:
+                            pass
+
+                    # Object was not expected in the image
+                    else:
+                        pass
 
             elif event_type == "Anomaly 4":
                 robot_id, shape, color = event_param
@@ -177,7 +216,6 @@ class TimeBasedDT:
         if eventype == "Pick Up":
             self.events.put((eventype, self._object_to_virtual_object(event_param)))
         else:
-            print("???????????????????????????????")
             self.events.put((eventype, event_param))
 
     def set_rules(self, rules: list[dict]) -> None:

@@ -35,7 +35,12 @@ def create_robot_states(id: int) -> dict:
         "Setup": RobotStates(key="Setup", origin="Setup", time=float("inf")),
         "Observation": RobotStates(key="Observation", origin="Observation", time=float("inf")),
         "Observation_to_Pickup_Storage": RobotStates(key="Observation_to_Pickup_Storage", origin="Observation", destination="Pickup_Storage", time=configuration["Observed_times"][f"Robot_{id}_Observation_to_Pickup_Storage"]),
-        "Observation_to_Pickup_Conveyor": RobotStates(key="Observation_to_Pickup_Conveyor", origin="Observation", destination="Pickup_Conveyor", time=configuration["Observed_times"][f"Robot_{id}_Observation_to_Pickup_Conveyor"]),
+        "Observation_to_Workspace_Observation": RobotStates(
+            key="Observation_to_Workspace_Observation", origin="Observation", destination="Workspace_Observation", time=configuration["Observed_times"][f"Robot_{id}_Observation_to_Workspace_Observation"]
+        ),
+        "Workspace_Observation_to_Pickup_Conveyor": RobotStates(
+            key="Workspace_Observation_to_Pickup_Conveyor", origin="Workspace_Observation", destination="Pickup_Conveyor", time=configuration["Observed_times"][f"Robot_{id}_Workspace_Observation_to_Pickup_Conveyor"]
+        ),
         "Pickup_Conveyor_to_Observation": RobotStates(key="Pickup_Conveyor_to_Observation", origin="Pickup_Conveyor", destination="Observation", time=configuration["Observed_times"][f"Robot_{id}_Pickup_Conveyor_to_Observation"]),
         "Observation_to_Standby": RobotStates(key="Observation_to_Standby", origin="Observation", destination="Standby", time=configuration["Observed_times"][f"Robot_{id}_Observation_to_Standby"]),
         "Observation_to_Place_Storage": RobotStates(key="Observation_to_Place_Storage", origin="Observation", destination="Place_Storage", time=configuration["Observed_times"][f"Robot_{id}_Observation_to_Place_Storage"]),

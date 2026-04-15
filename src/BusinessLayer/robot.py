@@ -2,9 +2,10 @@ import copy
 import threading
 import time
 
+import cv2
 import numpy as np
 import paramiko
-from pyniryo import ConveyorDirection, NiryoRobot, ObjectColor, ObjectShape, PinState, PoseObject, cv2, uncompress_image
+from pyniryo import ConveyorDirection, NiryoRobot, ObjectColor, ObjectShape, PinState, PoseObject, uncompress_image
 
 from resources.environment import configuration
 from resources.PriorityQueue import CustomPriorityQueue
@@ -19,9 +20,8 @@ class RobotArm:
         self.setup_file = "/home/niryo/catkin_ws/install/release/ned2/setup.bash"
         self.conveyor_workspace = f"Conveyor_workspace_{self.ID}"
         self.storage_workspace = f"Storage_workspace_{self.ID}"
-        self.safe_position = [0.0, 0.0, 0.0, 0.0, -1.57, 0.0]
         self.conveyor_speed = 75
-        self.place_conveyor, self.observation_pose_conveyor, self.observation_pose_storage, self.standby_position = positions
+        self.place_conveyor, self.observation_pose, self.observation_pose_storage, self.standby_position, self.observation_pose_conveyor = positions
         self.place_storage = configuration["storagePositions"][self.ID]
         self.occupied_storage = initial_object_positions
         self.conveyor_id = self.robot.set_conveyor()
@@ -34,6 +34,7 @@ class RobotArm:
         self.queue = CustomPriorityQueue(configuration["NumberOfPriorities"])
         self.object_updates = []
         self.anomaly_updates = []
+        self.latest_image = None
         self.IR = False
         self.rules = {}
         self.lock = threading.Lock()
@@ -83,6 +84,11 @@ class RobotArm:
     def drop_object(self) -> None:
         self.ready_to_drop = True
 
+    def get_latest_image(self) -> np.ndarray | None:
+        image = copy.deepcopy(self.latest_image)
+        self.latest_image = None
+        return image
+
     def _enable_camera(self) -> bool:
         output = ""
         # Connect to the robot via SSH
@@ -105,23 +111,16 @@ class RobotArm:
 
         return "average rate" in output
 
-    def take_image(self) -> None:
+    def _take_image(self) -> np.ndarray:
         with self.lock:
-            # Take in image
             img_compressed = self.robot.get_img_compressed()
-            if img_compressed:
-                # Uncompress and save the image
-                img = uncompress_image(img_compressed)
-                cv2.imwrite("final_result.jpg", img)
-                print("Saved image")
-            else:
-                print("Could not take image")
+            img_bgr = uncompress_image(img_compressed)
+            image_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+
+        return image_rgb
 
     def _stop_conveyorbelt(self) -> None:
         self.robot.stop_conveyor(self.conveyor_id)
-
-    def _move_to_safe_position(self) -> None:
-        self.robot.move_joints(self.safe_position)
 
     def _move_to_standby_position(self) -> None:
         self.robot.move_pose(self.standby_position)
@@ -295,8 +294,7 @@ class RobotArm:
 
         # Move to safe position
         print("Moving to safe position")
-        self._move_to_safe_position()
-        self._move_to_observation_position_conveyor()
+        self._move_to_observation_position()
 
         # Save the workspace defined in environment
         if self.conveyor_workspace not in self.robot.get_workspace_list():
@@ -305,13 +303,17 @@ class RobotArm:
         if self.storage_workspace not in self.robot.get_workspace_list():
             self.robot.save_workspace_from_robot_poses(self.storage_workspace, *configuration[self.storage_workspace])
 
-    def _move_to_observation_position_conveyor(self) -> None:
-        self.robot.move_pose(*self.observation_pose_conveyor)
-        self._set_camera_settings("Conveyor")
+    def _move_to_observation_position(self) -> None:
+        self.robot.move_pose(*self.observation_pose)
+        self.latest_image = self._take_image()
 
     def _move_to_observation_position_storage(self) -> None:
         self.robot.move_pose(*self.observation_pose_storage)
         self._set_camera_settings("Storage")
+
+    def _move_to_observation_position_conveyor(self) -> None:
+        self.robot.move_pose(*self.observation_pose_conveyor)
+        self._set_camera_settings("Conveyor")
 
     def _place_and_release(self, destination: list[float]) -> None:
         if destination == self.place_conveyor:
@@ -350,7 +352,7 @@ class RobotArm:
                 self.anomaly_updates.append(("Anomaly 4 Mitigation failed",))
                 return
 
-        self._move_to_safe_position()
+        self._move_to_observation_position()
 
         if workspace == self.conveyor_workspace:
             self.rules.pop((shape, color), None)
@@ -360,8 +362,7 @@ class RobotArm:
         if final_destination:
             self.object_updates.append((shape, color, f"Storage_{self.ID}"))
 
-        self._move_to_safe_position()
-        self._move_to_observation_position_conveyor()
+        self._move_to_observation_position()
 
     def disconnect(self) -> None:
         self._stop_conveyorbelt()

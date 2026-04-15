@@ -13,8 +13,6 @@ class StorageObject:
 
 
 configuration = {
-    "robot_0_overview_pose": [0.22588446311184643, -0.0008558529969849022, 0.5181733234906416, 0.036411234992297405, 1.1864229848405983, 0.03565316230539174],
-    "robot_1_overview_pose": [0.2058824271247155, 0.0007054255360600889, 0.5307552368864079, -0.028579226480643805, 1.11042505722123, -0.03175794465104596],
     # IP's of the niryo ned2 robots
     "ips": ["169.254.200.200", "169.254.200.201"],
     # Order of execution for the robot arms
@@ -63,8 +61,8 @@ configuration = {
         "Conveyor_1": 8.26,
         "Robot_0_Observation_to_Pickup_Storage": 8.86,
         "Robot_1_Observation_to_Pickup_Storage": 9.74,
-        "Robot_0_Observation_to_Pickup_Conveyor": 4.66,
-        "Robot_1_Observation_to_Pickup_Conveyor": 4.51,
+        "Robot_0_Workspace_Observation_to_Pickup_Conveyor": 4.66,
+        "Robot_1_Workspace_Observation_to_Pickup_Conveyor": 4.51,
         "Robot_0_Pickup_Conveyor_to_Observation": 4.16,
         "Robot_1_Pickup_Conveyor_to_Observation": 4.14,
         "Robot_0_Observation_to_Standby": 2.78,
@@ -79,6 +77,8 @@ configuration = {
         "Robot_1_Place_Storage_to_Observation": 4.43,
         "Robot_0_Place_Conveyor_to_Observation": 3.43,
         "Robot_1_Place_Conveyor_to_Observation": 3.92,
+        "Robot_0_Observation_to_Workspace_Observation": 100,
+        "Robot_1_Observation_to_Workspace_Observation": 100,
     },
     "storagePositions": [
         [
@@ -105,14 +105,16 @@ configuration = {
                 1.4919714064477891,
                 -0.011501923089995283,
             ],  # PlaceConveyor
+
             [
-                0.2762497323855258,
-                -0.0758582449018067,
-                0.25877878754192806,
-                -0.3753629275811858,
-                1.502019805732354,
-                -0.41621094014756393,
-            ],  # ObservationPositionConveyor
+                0.22588446311184643,
+                -0.0008558529969849022,
+                0.5181733234906416,
+                0.036411234992297405,
+                1.1864229848405983,
+                0.03565316230539174
+            ],  # Observation
+
             [
                 -0.017141437047257388,
                 -0.15184164134413197,
@@ -129,6 +131,15 @@ configuration = {
                 1.4919714064477891,
                 -0.011501923089995283,
             ],  # Standby Position
+
+             [
+                0.2762497323855258,
+                -0.0758582449018067,
+                0.25877878754192806,
+                -0.3753629275811858,
+                1.502019805732354,
+                -0.41621094014756393,
+            ] # Conveyor Workspace
         ],
         # Robot_1's positions
         [
@@ -140,14 +151,16 @@ configuration = {
                 1.524596107925453,
                 2.2656189128608912,
             ],  # PlaceConveyor
+
             [
-                0.28652238179577555,
-                -0.07686871280532333,
-                0.2595967526715013,
-                0.13276838676211575,
-                1.4864162505849923,
-                -0.08733655724281332,
-            ],  # ObservationPositionConveyor
+                0.2058824271247155,
+                0.0007054255360600889,
+                0.5307552368864079,
+                -0.028579226480643805,
+                1.11042505722123,
+                -0.03175794465104596
+            ], # Observation
+
             [
                 -0.026088641405653677,
                 0.15325372778995128,
@@ -164,6 +177,16 @@ configuration = {
                 1.524596107925453,
                 2.2656189128608912,
             ],  # Standby Position
+
+            [
+                0.28652238179577555,
+                -0.07686871280532333,
+                0.2595967526715013,
+                0.13276838676211575,
+                1.4864162505849923,
+                -0.08733655724281332,
+            ], # Conveyor Workspace
+
         ],
     ],
     "Conveyor_workspace_0": [
