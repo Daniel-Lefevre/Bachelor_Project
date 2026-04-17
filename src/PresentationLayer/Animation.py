@@ -112,6 +112,7 @@ class Animation:
                 "Standby": [self._sx(350), self._sy(200)],
                 "Pickup_Conveyor": [self._sx(450), self._sy(495)],
                 "Observation": [self._sx(350), self._sy(495)],
+                "Workspace_Observation": [self._sx(350), self._sy(495)],
             },
             # Robot 1's positions
             {
@@ -121,6 +122,7 @@ class Animation:
                 "Standby": [self._sx(930), self._sy(495)],
                 "Pickup_Conveyor": [self._sx(830), self._sy(200)],
                 "Observation": [self._sx(950), self._sy(200)],
+                "Workspace_Observation": [self._sx(950), self._sy(200)],
             },
         ]
 

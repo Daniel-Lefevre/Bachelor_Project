@@ -11,33 +11,6 @@ class ImageProcessing:
     def set_image(self, path: str) -> None:
         self.image = cv2.imread(path)
 
-    def _crop_and_warp(self, image: np.ndarray) -> np.ndarray:
-        # Define the box to crop to
-        top_width = np.linalg.norm(self.crop_points[1] - self.crop_points[0])
-        bottom_width = np.linalg.norm(self.crop_points[2] - self.crop_points[3])
-        left_height = np.linalg.norm(self.crop_points[3] - self.crop_points[0])
-        right_height = np.linalg.norm(self.crop_points[2] - self.crop_points[1])
-
-        # Define height and width of the square to crop
-        width_square = int(max(top_width, bottom_width))
-        height_square = int(max(left_height, right_height))
-
-        # Determine dimensions of the output rectangle
-        data_points = np.float32(
-            [
-                [0, 0],  # top-left
-                [width_square, 0],  # top-right
-                [width_square, height_square],  # bottom-right
-                [0, height_square],  # bottom-left
-            ]
-        )
-
-        # Calculate the Transformation Matrix
-        M = cv2.getPerspectiveTransform(self.crop_points, data_points)
-
-        # Apply and return the warp
-        return cv2.warpPerspective(image, M, (width_square, height_square))
-
     def _create_hsv_image(self, image: np.ndarray) -> np.ndarray:
         return cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
@@ -142,9 +115,9 @@ class ImageProcessing:
     def classify(self) -> str:
         cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/original.jpg", self.image)
 
-        cropped_image = self._crop_and_warp(self.image)
-        cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/cropped_image.jpg", cropped_image)
-        hsv_image = self._create_hsv_image(cropped_image)
+        # cropped_image = self._crop_and_warp(self.image)
+        # cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/cropped_image.jpg", cropped_image)
+        hsv_image = self._create_hsv_image(self.image)
         hue, _, value = cv2.split(hsv_image)
         cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/hue.jpg", hue)
         cv2.imwrite("Experiments/Experiment1OpenSetRecognision/Processed_Images/value.jpg", value)

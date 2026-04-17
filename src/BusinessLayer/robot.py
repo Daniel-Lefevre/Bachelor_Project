@@ -305,7 +305,7 @@ class RobotArm:
 
     def _move_to_observation_position(self) -> None:
         self.robot.move_pose(*self.observation_pose)
-        self.latest_image = self._take_image()
+        # self.latest_image = self._take_image()
 
     def _move_to_observation_position_storage(self) -> None:
         self.robot.move_pose(*self.observation_pose_storage)
