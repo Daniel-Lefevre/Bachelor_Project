@@ -47,8 +47,8 @@ class ImageProcessingML:
         self.dimension = dimension
         self.augment_factor = augment_factor
         self.confidence_level = confidence_level
-        self.images_per_label = 166
-        self.euclidean_minimum_distances = [] # Storing the max allowed distance per class
+        self.images_per_label = 146
+        self.euclidean_minimum_distances = []  # Storing the max allowed distance per class
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
@@ -130,19 +130,19 @@ class ImageProcessingML:
             for x in label_points:
                 euclidean_distance = np.linalg.norm(x - mean)
                 euclidean_distances.append(euclidean_distance)
-                
+
             # --- GAUSSIAN CONFIDENCE INTERVAL LOGIC ---
             # Assume distances follow a normal distribution
             dist_mean = np.mean(euclidean_distances)
             dist_std = np.std(euclidean_distances)
-            
+
             # Use Percent Point Function (Inverse CDF) to find the Z-score for the given confidence level
             # e.g., 0.95 gives ~1.645 standard deviations
             z_score = norm.ppf(self.confidence_level)
-            
+
             # Max allowed distance is mean + (Z * std)
             max_euclidean = dist_mean + (z_score * dist_std)
-            
+
             self.euclidean_minimum_distances.append(max_euclidean)
             self.distances.append(euclidean_distances)
 
@@ -368,16 +368,12 @@ def objective(trial, test_dataset):
     # Suggest parameters based on reasonable ML ranges
     dimension = trial.suggest_int("dimension", 2, 6)
     augment_factor = trial.suggest_int("augment_factor", 1, 5)
-    
+
     # Suggest confidence intervals (e.g., from 80% to 99.9%)
     confidence_level = trial.suggest_float("confidence_level", 0.80, 0.999)
 
     # Initialize the ML class with the trial parameters
-    image_processor = ImageProcessingML(
-        dimension=dimension, 
-        augment_factor=augment_factor, 
-        confidence_level=confidence_level
-    )
+    image_processor = ImageProcessingML(dimension=dimension, augment_factor=augment_factor, confidence_level=confidence_level)
 
     correctly_labeled_images = 0
     total_images = len(test_dataset)
