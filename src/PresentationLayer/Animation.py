@@ -6,7 +6,7 @@ from typing import Any, List, Literal
 
 from pyniryo import ObjectColor, ObjectShape
 
-from src.BusinessLayer.DT.states import ObjectState, ObjectStates
+from src.BusinessLayer.DT.States import ObjectState, ObjectStates
 
 
 @dataclass

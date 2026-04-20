@@ -44,15 +44,17 @@ if __name__ == "__main__":
 
     # Define your input and output directories
     # Blue_Circle, Blue_Square, Green_Circle, Green_Square, No_Object, Red_Circle, Red_Square, Unidentified_Object
-    for label in ["Blue_Square"]:
-        input_folder = os.path.join(r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Training_Data_Full", label)
-        output_folder = os.path.join(r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Training_Data", label)
+
+    # for label in ["Unidentified_Object"]:
+    for label in ["Blue_Circle", "Blue_Square", "Green_Circle", "Green_Square", "No_Object", "Red_Circle", "Red_Square"]:
+        input_folder = os.path.join(r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Test_Data", label)
+        output_folder = os.path.join(r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Test_Data", label)
 
         # Create the output directory if it doesn't already exist
         os.makedirs(output_folder, exist_ok=True)
 
         # Loop over image numbers 1 through 200
-        for i in range(1, 21):
+        for i in range(1, 11):
             filename = f"{i}.jpg"
 
             # Safely construct the full paths
@@ -60,7 +62,7 @@ if __name__ == "__main__":
             output_path = os.path.join(output_folder, filename)
 
             # Process the image (Notice we removed padding=30 here)
-            result_image = crop_and_mask_polygon(input_path, robot_1_points)
+            result_image = crop_and_mask_polygon(input_path, robot_0_points)
 
             # Save the new image to the output folder
             success = cv2.imwrite(output_path, result_image)

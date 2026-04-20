@@ -4,12 +4,12 @@ import copy
 import time
 from typing import TYPE_CHECKING
 
-from src.BusinessLayer.DT.states import ObjectStates
+from src.BusinessLayer.DT.States import ObjectStates
 
 if TYPE_CHECKING:
     from pyniryo import ObjectColor, ObjectShape
 
-    from src.BusinessLayer.DT.states import ObjectState
+    from src.BusinessLayer.DT.States import ObjectState
 
 
 class VirtualObject:

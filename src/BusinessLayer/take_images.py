@@ -9,6 +9,8 @@ import cv2
 import keyboard
 import paramiko
 from pyniryo import NiryoRobot, uncompress_image
+import numpy as np
+np.fromstring = np.frombuffer
 
 from resources.environment import configuration
 
@@ -19,7 +21,7 @@ def take_and_store_image(robot_index, label, robots, filename):
     if img_compressed:
         # Uncompress and save the image
         img = uncompress_image(img_compressed)
-        base_dir = r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Training_Data"
+        base_dir = r"C:\Users\willi\Desktop\Uni\6.Semester\Bachelor\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Test_Data"
         dynamic_folder = label
         filename = str(filename) + ".jpg"
 
@@ -86,7 +88,7 @@ for ip in robot_IPs:
     print(_enable_camera(ip))
 
 labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square", "No_Object", "Unidentified_Object"]
-label_counter = {"Blue_Circle": 100, "Blue_Square": 100, "Red_Circle": 100, "Red_Square": 100, "Green_Circle": 100, "Green_Square": 100, "No_Object": 100, "Unidentified_Object": 125}
+label_counter = {"Blue_Circle": 20, "Blue_Square": 20, "Red_Circle": 20, "Red_Square": 20, "Green_Circle": 20, "Green_Square": 20, "No_Object": 20, "Unidentified_Object": 15}
 
 while True:
     # Robot 0 Blue Circle
@@ -95,7 +97,7 @@ while True:
         label_counter[label] += 1
         take_and_store_image(0, label, robots, label_counter[label])
 
-    # Robot 0 Blue Square
+    # Robot 0 Blue Square2222222222wwwwwwwwww22222wwww
     if keyboard.is_pressed("2"):
         label = labels[1]
         label_counter[label] += 1

@@ -5,14 +5,14 @@ from typing import TYPE_CHECKING
 
 from resources.environment import configuration
 from resources.PriorityQueue import CustomPriorityQueue
-from src.BusinessLayer.DT.states import create_robot_states
+from src.BusinessLayer.DT.States import create_robot_states
 from src.BusinessLayer.DT.virtual_conveyor import VirtualConveyor
 from src.BusinessLayer.DT.virtual_storage import VirtualStorage
 
 if TYPE_CHECKING:
     from pyniryo import ObjectColor, ObjectShape
 
-    from src.BusinessLayer.DT.states import RobotStates
+    from src.BusinessLayer.DT.States import RobotStates
     from src.BusinessLayer.DT.virtual_object import VirtualObject
 
 
@@ -122,6 +122,11 @@ class VirtualRobot:
             raise Exception(f"Unknown anomaly: {anomaly}")
 
     def step(self, objec_at_drop_off: bool, object_at_ir: bool) -> tuple[VirtualObject | None, str | None, bool | None] | None:
+        print(f"{self.id}: {self.state.key}")
+        
+        if self.id == 1:
+            print("---------------")
+        
         # If in setup dont do anything
         if self.state.key == "Setup":
             return None
