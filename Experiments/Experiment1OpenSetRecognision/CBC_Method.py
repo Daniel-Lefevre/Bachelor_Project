@@ -39,7 +39,7 @@ make_deterministic(SEED)
 
 class ImageProcessingML:
     def __init__(self):
-        self.dimension = 6
+        self.dimension = 3
         self.augment_factor = 4
         self.images_per_label = 166
         self.euclidean_minimum_distances = []
@@ -328,34 +328,34 @@ class ImageProcessingML:
 if __name__ == "__main__":
     image_processor = ImageProcessingML()
     # image_processor.plot_euclidean_distances()
-    # image_processor.plot_3d()
+    image_processor.plot_3d()
     # image_processor.plot_lda_variance()
     # image_processor.plot_train_test_1d_distances()
     labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square", "No_Object", "Unidentified_Object"]
 
-    correctly_labeled_images = 0
-    falsy_labeled_images = 0
-    total_validation_time = 0
-    total_images = 176
+    # correctly_labeled_images = 0
+    # falsy_labeled_images = 0
+    # total_validation_time = 0
+    # total_images = 176
 
-    for label in labels:
-        number_of_images = 36 if label == "Unidentified_Object" else 20
-        for i in range(number_of_images):
-            path = os.path.join(script_dir, "Test_Data", label, f"{i + 1}.jpg")
-            image_bgr = cv2.imread(path)
+    # for label in labels:
+    #     number_of_images = 36 if label == "Unidentified_Object" else 20
+    #     for i in range(number_of_images):
+    #         path = os.path.join(script_dir, "Test_Data", label, f"{i + 1}.jpg")
+    #         image_bgr = cv2.imread(path)
 
-            start_time = time.perf_counter_ns()
-            return_label = image_processor.classify_image(image_bgr)
-            total_validation_time += time.perf_counter_ns() - start_time
+    #         start_time = time.perf_counter_ns()
+    #         return_label = image_processor.classify_image(image_bgr)
+    #         total_validation_time += time.perf_counter_ns() - start_time
 
-            if return_label == label:
-                correctly_labeled_images += 1
-            else:
-                falsy_labeled_images += 1
-                print(label + " classified as " + return_label + " - " + str(i + 1))
+    #         if return_label == label:
+    #             correctly_labeled_images += 1
+    #         else:
+    #             falsy_labeled_images += 1
+    #             print(label + " classified as " + return_label + " - " + str(i + 1))
 
-    test_point_sum = correctly_labeled_images + falsy_labeled_images
-    print(f"{test_point_sum} test points were labeled.")
-    print(f"{correctly_labeled_images} ({round(correctly_labeled_images / test_point_sum, 3)}%) were labeled corretly.")
-    print(f"{falsy_labeled_images} ({round(falsy_labeled_images / test_point_sum, 3)}%) were labeled incorretly.")
-    print(f"Time per image classification in test data: {(total_validation_time / total_images) * 10 ** (-6)} ms")
+    # test_point_sum = correctly_labeled_images + falsy_labeled_images
+    # print(f"{test_point_sum} test points were labeled.")
+    # print(f"{correctly_labeled_images} ({round(correctly_labeled_images / test_point_sum, 3)}%) were labeled corretly.")
+    # print(f"{falsy_labeled_images} ({round(falsy_labeled_images / test_point_sum, 3)}%) were labeled incorretly.")
+    # print(f"Time per image classification in test data: {(total_validation_time / total_images) * 10 ** (-6)} ms")

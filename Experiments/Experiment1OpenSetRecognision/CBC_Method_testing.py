@@ -11,6 +11,7 @@ import optuna.visualization.matplotlib as vis
 import torch
 import torch.nn as nn
 from PIL import Image
+from scipy.stats import norm  # <-- Added for Gaussian calculations
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -40,12 +41,13 @@ make_deterministic(SEED)
 
 
 class ImageProcessingML:
-    def __init__(self, dimension=6, augment_factor=4, threshold=1.5):
+    # Changed 'threshold' to 'confidence_level'
+    def __init__(self, dimension=6, augment_factor=4, confidence_level=0.95):
         self.dimension = dimension
         self.augment_factor = augment_factor
-        self.threshold = threshold
+        self.confidence_level = confidence_level
         self.images_per_label = 166
-        self.euclidean_minimum_distances = []
+        self.euclidean_minimum_distances = [] # Storing the max allowed distance per class
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
@@ -127,9 +129,19 @@ class ImageProcessingML:
             for x in label_points:
                 euclidean_distance = np.linalg.norm(x - mean)
                 euclidean_distances.append(euclidean_distance)
-
-            best_index = np.argmax(euclidean_distances)
-            max_euclidean = euclidean_distances[best_index] * self.threshold
+                
+            # --- GAUSSIAN CONFIDENCE INTERVAL LOGIC ---
+            # Assume distances follow a normal distribution
+            dist_mean = np.mean(euclidean_distances)
+            dist_std = np.std(euclidean_distances)
+            
+            # Use Percent Point Function (Inverse CDF) to find the Z-score for the given confidence level
+            # e.g., 0.95 gives ~1.645 standard deviations
+            z_score = norm.ppf(self.confidence_level)
+            
+            # Max allowed distance is mean + (Z * std)
+            max_euclidean = dist_mean + (z_score * dist_std)
+            
             self.euclidean_minimum_distances.append(max_euclidean)
             self.distances.append(euclidean_distances)
 
@@ -156,7 +168,6 @@ class ImageProcessingML:
         if min_euclidean_percentage <= 1:
             return self.labels[best_index]
 
-        # print(min_euclidean)
         return "Unidentified_Object"
 
     def _get_features(self, image):
@@ -354,14 +365,18 @@ def load_all_data(script_dir, folder_name):
 # 2. The Objective Function
 def objective(trial, test_dataset):
     # Suggest parameters based on reasonable ML ranges
-    # Note: dimension cannot be higher than (Number of classes - 1), which is 6.
     dimension = trial.suggest_int("dimension", 2, 6)
     augment_factor = trial.suggest_int("augment_factor", 1, 5)
-    threshold = trial.suggest_float("threshold", 1.0, 3.0)
+    
+    # Suggest confidence intervals (e.g., from 80% to 99.9%)
+    confidence_level = trial.suggest_float("confidence_level", 0.80, 0.999)
 
     # Initialize the ML class with the trial parameters
-    # This automatically runs _train_model() using the new parameters
-    image_processor = ImageProcessingML(dimension=dimension, augment_factor=augment_factor, threshold=threshold)
+    image_processor = ImageProcessingML(
+        dimension=dimension, 
+        augment_factor=augment_factor, 
+        confidence_level=confidence_level
+    )
 
     correctly_labeled_images = 0
     total_images = len(test_dataset)
@@ -433,10 +448,6 @@ if __name__ == "__main__":
 
     print(f"Done! High-res figures and results table are in /{folder_path}")
 
-    # image_processor.plot_euclidean_distances()
-    # image_processor.plot_3d()
-    # image_processor.plot_lda_variance()
-    # image_processor.plot_train_test_1d_distances()
     labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square", "No_Object", "Unidentified_Object"]
 
     correctly_labeled_images = 0
@@ -444,6 +455,7 @@ if __name__ == "__main__":
     total_validation_time = 0
     total_images = 176
 
+    # Unpacks all the best params found by optuna (including confidence_level)
     image_processor = ImageProcessingML(**study.best_params)
     for label in labels:
         number_of_images = 36 if label == "Unidentified_Object" else 20
