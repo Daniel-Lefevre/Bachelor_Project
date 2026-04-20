@@ -3,9 +3,11 @@ import time
 
 import cv2
 import matplotlib.pyplot as plt
+import numpy as np
 import optuna
 import optuna.visualization.matplotlib as vis
 from noML_testing import ImageProcessing
+from sklearn.metrics import confusion_matrix
 
 
 # 1. Pre-load all images into memory once
@@ -82,13 +84,16 @@ if __name__ == "__main__":
     labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square", "No_Object", "Unidentified_Object"]
     # labels = ["No_Object"]
 
+    y_true = []
+    y_pred = []
+
     correctly_labeled_images = 0
     falsy_labeled_images = 0
     total_processing_time = 0
 
     for label in labels:
         print(label)
-        number_of_image = 36 if label == "Unidentified_Object" else 20
+        number_of_image = 30 if label == "Unidentified_Object" else 20
         for i in range(number_of_image):
             image_path = os.path.join(script_dir, "Test_Data", label, f"{i + 1}.jpg")
 
@@ -98,6 +103,9 @@ if __name__ == "__main__":
             return_label = image_processor.classify(**study.best_params)
             end_time = time.perf_counter()
             total_processing_time += end_time - start_time
+
+            y_true.append(label)
+            y_pred.append(return_label)
 
             if return_label == label:
                 correctly_labeled_images += 1
@@ -117,7 +125,7 @@ if __name__ == "__main__":
 
     # Create the directory if it doesn't exist
 
-    folder_path = os.path.join(script_dir, "ml_optuna_figures")
+    folder_path = os.path.join(script_dir, "morphological_classification_figures")
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
         print(f"\nCreated folder: {folder_path}")
@@ -150,6 +158,48 @@ if __name__ == "__main__":
 
     # 5. Export the 'Grid-like' data to CSV for your tables
     df = study.trials_dataframe()
-    df.to_csv(os.path.join(folder_path, "ml_optuna_results_table.csv"), index=False)
+    df.to_csv(os.path.join(folder_path, "morph_optuna_results_table.csv"), index=False)
+
+    # Confusion Matrix
+    display_labels = ["Unknown", "Green_Circle", "Green_Square", "Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "background"]
+    label_map = {
+        "Unidentified_Object": "Unknown",
+        "No_Object": "background",
+        "Blue_Circle": "Blue_Circle",
+        "Blue_Square": "Blue_Square",
+        "Red_Circle": "Red_Circle",
+        "Red_Square": "Red_Square",
+        "Green_Circle": "Green_Circle",
+        "Green_Square": "Green_Square",
+    }
+
+    # Map the results
+    y_true_mapped = [label_map.get(lbl, lbl) for lbl in y_true]
+    y_pred_mapped = [label_map.get(lbl, lbl) for lbl in y_pred]
+
+    # 2. Calculate matrix
+    cm = confusion_matrix(y_true_mapped, y_pred_mapped, labels=display_labels)
+
+    # 3. Plotting
+    fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
+    im = ax.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
+    ax.figure.colorbar(im, ax=ax)
+
+    # Styles
+    ax.set(xticks=np.arange(cm.shape[1]), yticks=np.arange(cm.shape[0]), xticklabels=display_labels, yticklabels=display_labels, title="Confusion Matrix", ylabel="Predicted", xlabel="True")
+    ax.grid(False)
+
+    plt.setp(ax.get_xticklabels(), rotation=90, ha="right", rotation_mode="anchor")
+
+    # Add text annotations
+    thresh = cm.max() / 2.0
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            if cm[i, j] > 0:
+                ax.text(j, i, format(cm[i, j], "d"), ha="center", va="center", color="white" if cm[i, j] > thresh else "black")
+
+    fig.tight_layout(pad=2.0)
+    plt.savefig(os.path.join(folder_path, "confusion_matrix.png"))
+    plt.close()
 
     print(f"Done! High-res figures and results table are in /{folder_path}")

@@ -27,10 +27,10 @@ def fix_by_looping(full_folder_path, max_expected_number):
 
 if __name__ == "__main__":
     # 1. The name of the folder next to your script
-    FOLDER_NAME = "Test_Data"
+    FOLDER_NAME = "Validation_Data"
 
-    OBJECT = "Blue_Circle"
-    MAX_EXPECTED = 220
+    OBJECT = "Unidentified_Object"
+    MAX_EXPECTED = 210
 
     # 2. Get the exact directory where this Python script lives
     script_dir = os.path.dirname(os.path.abspath(__file__))

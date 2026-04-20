@@ -44,7 +44,9 @@ if __name__ == "__main__":
 
     # Define your input and output directories
     # Blue_Circle, Blue_Square, Green_Circle, Green_Square, No_Object, Red_Circle, Red_Square, Unidentified_Object
+
     for label in ["Unidentified_Object"]:
+        # for label in ["Blue_Circle", "Blue_Square", "Green_Circle", "Green_Square", "No_Object", "Red_Circle", "Red_Square"]:
         input_folder = os.path.join(r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Test_Data", label)
         output_folder = os.path.join(r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Test_Data", label)
 
@@ -52,7 +54,7 @@ if __name__ == "__main__":
         os.makedirs(output_folder, exist_ok=True)
 
         # Loop over image numbers 1 through 200
-        for i in range(1, 21):
+        for i in range(16, 31):
             filename = f"{i}.jpg"
 
             # Safely construct the full paths
