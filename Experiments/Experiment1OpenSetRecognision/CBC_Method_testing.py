@@ -11,9 +11,7 @@ import optuna.visualization.matplotlib as vis
 import torch
 import torch.nn as nn
 from PIL import Image
-from scipy.stats import norm  # <-- Added for Gaussian calculations
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
-from sklearn.metrics import confusion_matrix
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from torchvision import transforms
@@ -42,13 +40,12 @@ make_deterministic(SEED)
 
 
 class ImageProcessingML:
-    # Changed 'threshold' to 'confidence_level'
-    def __init__(self, dimension=6, augment_factor=4, confidence_level=0.95):
+    def __init__(self, dimension=6, augment_factor=4, std_multiplier=3.0):
         self.dimension = dimension
         self.augment_factor = augment_factor
-        self.confidence_level = confidence_level
+        self.std_multiplier = std_multiplier
         self.images_per_label = 166
-        self.euclidean_minimum_distances = [] # Storing the max allowed distance per class
+        self.euclidean_minimum_distances = []
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
@@ -130,18 +127,13 @@ class ImageProcessingML:
             for x in label_points:
                 euclidean_distance = np.linalg.norm(x - mean)
                 euclidean_distances.append(euclidean_distance)
-                
-            # --- GAUSSIAN CONFIDENCE INTERVAL LOGIC ---
-            # Assume distances follow a normal distribution
+
+            # --- STANDARD DEVIATION MULTIPLIER LOGIC ---
             dist_mean = np.mean(euclidean_distances)
             dist_std = np.std(euclidean_distances)
             
-            # Use Percent Point Function (Inverse CDF) to find the Z-score for the given confidence level
-            # e.g., 0.95 gives ~1.645 standard deviations
-            z_score = norm.ppf(self.confidence_level)
-            
-            # Max allowed distance is mean + (Z * std)
-            max_euclidean = dist_mean + (z_score * dist_std)
+            # Max allowed distance is simply Mean + (Multiplier * Standard Deviation)
+            max_euclidean = dist_mean + (self.std_multiplier * dist_std)
             
             self.euclidean_minimum_distances.append(max_euclidean)
             self.distances.append(euclidean_distances)
@@ -369,14 +361,14 @@ def objective(trial, test_dataset):
     dimension = trial.suggest_int("dimension", 2, 6)
     augment_factor = trial.suggest_int("augment_factor", 1, 5)
     
-    # Suggest confidence intervals (e.g., from 80% to 99.9%)
-    confidence_level = trial.suggest_float("confidence_level", 0.80, 0.999)
+    # Standard deviation multiplier (1.0 to 5.0 gives Optuna a clean, linear search space)
+    std_multiplier = trial.suggest_float("std_multiplier", 1.0, 5.0)
 
     # Initialize the ML class with the trial parameters
     image_processor = ImageProcessingML(
         dimension=dimension, 
         augment_factor=augment_factor, 
-        confidence_level=confidence_level
+        std_multiplier=std_multiplier
     )
 
     correctly_labeled_images = 0
@@ -412,7 +404,7 @@ if __name__ == "__main__":
         print(f"  {key}: {value}")
 
     # Create the directory if it doesn't exist
-    folder_path = os.path.join(script_dir, "CBC_method_figures")
+    folder_path = os.path.join(script_dir, "ml_optuna_figures")
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
         print(f"\nCreated folder: {folder_path}")
@@ -449,25 +441,17 @@ if __name__ == "__main__":
 
     print(f"Done! High-res figures and results table are in /{folder_path}")
 
-    # image_processor.plot_euclidean_distances()
-    # image_processor.plot_3d()
-    # image_processor.plot_lda_variance()
-    # image_processor.plot_train_test_1d_distances()
-
-    y_true = []
-    y_pred = []
-
     labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square", "No_Object", "Unidentified_Object"]
 
     correctly_labeled_images = 0
     falsy_labeled_images = 0
     total_validation_time = 0
-    total_images = 170
+    total_images = 176
 
-    # Unpacks all the best params found by optuna (including confidence_level)
+    # Unpacks all the best params found by optuna (including std_multiplier)
     image_processor = ImageProcessingML(**study.best_params)
     for label in labels:
-        number_of_images = 30 if label == "Unidentified_Object" else 20
+        number_of_images = 36 if label == "Unidentified_Object" else 20
         for i in range(number_of_images):
             path = os.path.join(script_dir, "Test_Data", label, f"{i + 1}.jpg")
             image_bgr = cv2.imread(path)
@@ -476,52 +460,11 @@ if __name__ == "__main__":
             return_label = image_processor.classify_image(image_bgr)
             total_validation_time += time.perf_counter_ns() - start_time
 
-            y_true.append(label)
-            y_pred.append(return_label)
-
             if return_label == label:
                 correctly_labeled_images += 1
             else:
                 falsy_labeled_images += 1
                 print(label + " classified as " + return_label + " - " + str(i + 1))
-
-    # Matching your YOLO reference names
-    display_labels = ["Unknown", "Green_Circle", "Green_Square", "Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "background"]
-    label_map = {
-        "Unidentified_Object": "Unknown",
-        "No_Object": "background",
-        "Blue_Circle": "Blue_Circle",
-        "Blue_Square": "Blue_Square",
-        "Red_Circle": "Red_Circle",
-        "Red_Square": "Red_Square",
-        "Green_Circle": "Green_Circle",
-        "Green_Square": "Green_Square",
-    }
-
-    y_true_mapped = [label_map.get(lbl, lbl) for lbl in y_true]
-    y_pred_mapped = [label_map.get(lbl, lbl) for lbl in y_pred]
-
-    cm = confusion_matrix(y_true_mapped, y_pred_mapped, labels=display_labels)
-
-    # 3. Plotting with "YOLO" styling
-    fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
-    im = ax.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
-    ax.figure.colorbar(im, ax=ax)
-
-    ax.set(xticks=np.arange(cm.shape[1]), yticks=np.arange(cm.shape[0]), xticklabels=display_labels, yticklabels=display_labels, title="Confusion Matrix (ResNet+LDA)", ylabel="Predicted", xlabel="True")
-    ax.grid(False)
-
-    plt.setp(ax.get_xticklabels(), rotation=45, ha="right", rotation_mode="anchor")
-
-    # Add numbers inside the boxes
-    thresh = cm.max() / 2.0
-    for i in range(cm.shape[0]):
-        for j in range(cm.shape[1]):
-            if cm[i, j] > 0:
-                ax.text(j, i, format(cm[i, j], "d"), ha="center", va="center", color="white" if cm[i, j] > thresh else "black", fontweight="bold")
-
-    plt.tight_layout()
-    plt.savefig(os.path.join(folder_path, "confusion_matrix_ml.png"))
 
     test_point_sum = correctly_labeled_images + falsy_labeled_images
     print(f"{test_point_sum} test points were labeled.")
