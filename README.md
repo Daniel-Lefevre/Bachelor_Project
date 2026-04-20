@@ -19,4 +19,9 @@ To connect to the robots setup the following environment
 
 <img width="460" height="269" alt="image" src="https://github.com/user-attachments/assets/aa01015e-e0c4-42f3-b40d-f9254778088d" />
 
-When the environment has been setup and the cable from the switch has been connected to the laptop. Then go to `control panel` $\to$ `network and internet` $\to$ `Network and Sharing Center` $\to$ `Change adapter settings`. Now right click the enternet connection that has been setup through the cable and move into `IPv4` $\to$ `Properties`.
+When the environment has been setup and the cable from the switch has been connected to the laptop. Go to `control panel` $\to$ `network and internet` $\to$ `Network and Sharing Center` $\to$ `Change adapter settings`. Right click the enternet connection that has been setup with the cable and move into `IPv4` $\to$ `Properties`. Select `Use the following IP-address` and enter:
+
+- **IP-address**: 192.168.1.100
+- **Subnet mask**: 255.255.255.0
+
+Click OK and apply. You should not be able to connect to the robots. This can be checked via opening a command promt and typing: `SSH niryo@IP-address`, where the IP-address is either of the two IP-addresses of the robots. The password for both robots are `robotics`.
