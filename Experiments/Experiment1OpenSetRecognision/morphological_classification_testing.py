@@ -1,7 +1,10 @@
 import os
+import time
 
 import cv2
+import matplotlib.pyplot as plt
 import optuna
+import optuna.visualization.matplotlib as vis
 from noML_testing import ImageProcessing
 
 
@@ -67,7 +70,7 @@ if __name__ == "__main__":
     study = optuna.create_study(direction="maximize")
 
     # Use a lambda to pass the dataset into the objective function
-    study.optimize(lambda trial: objective(trial, preloaded_dataset), n_trials=50, show_progress_bar=True, n_jobs=-1)
+    study.optimize(lambda trial: objective(trial, preloaded_dataset), n_trials=100, show_progress_bar=True, n_jobs=-1)
 
     print("\n--- OPTIMIZATION FINISHED ---")
     print(f"Best Accuracy Achieved: {round(study.best_value * 100, 2)}%")
@@ -81,16 +84,20 @@ if __name__ == "__main__":
 
     correctly_labeled_images = 0
     falsy_labeled_images = 0
+    total_processing_time = 0
 
     for label in labels:
         print(label)
         number_of_image = 36 if label == "Unidentified_Object" else 20
-        for i in range(1, number_of_image + 1):
+        for i in range(number_of_image):
             image_path = os.path.join(script_dir, "Test_Data", label, f"{i + 1}.jpg")
 
             image_processor.set_image(image_path)
             # Pass the optimized parameters here!
+            start_time = time.perf_counter()
             return_label = image_processor.classify(**study.best_params)
+            end_time = time.perf_counter()
+            total_processing_time += end_time - start_time
 
             if return_label == label:
                 correctly_labeled_images += 1
@@ -100,8 +107,49 @@ if __name__ == "__main__":
 
     test_point_sum = correctly_labeled_images + falsy_labeled_images
     if test_point_sum > 0:
+        avg_time = total_processing_time / test_point_sum
         print(f"\n{test_point_sum} test points were labeled.")
         print(f"{correctly_labeled_images} ({round((correctly_labeled_images / test_point_sum) * 100, 2)}%) were labeled correctly.")
         print(f"{falsy_labeled_images} ({round((falsy_labeled_images / test_point_sum) * 100, 2)}%) were labeled incorrectly.")
+        print(f"Average classification time: {round(avg_time * 1000, 2)} ms per image")  # Converted to milliseconds
     else:
         print("No test images were found.")
+
+    # Create the directory if it doesn't exist
+
+    folder_path = os.path.join(script_dir, "ml_optuna_figures")
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+        print(f"\nCreated folder: {folder_path}")
+
+    print("Generating high-quality thesis figures using Matplotlib...")
+
+    # 1. Optimization History
+    vis.plot_optimization_history(study)
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder_path, "optimization_history.png"), dpi=300)
+    plt.close()
+
+    # 2. Parameter Importances
+    vis.plot_param_importances(study)
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder_path, "param_importances.png"), dpi=300)
+    plt.close()
+
+    # 3. Parallel Coordinate Plot
+    vis.plot_parallel_coordinate(study)
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder_path, "parallel_coordinates.png"), dpi=300)
+    plt.close()
+
+    # 4. Slice Plot
+    vis.plot_slice(study)
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder_path, "parameter_slices.png"), dpi=300)
+    plt.close()
+
+    # 5. Export the 'Grid-like' data to CSV for your tables
+    df = study.trials_dataframe()
+    df.to_csv(os.path.join(folder_path, "ml_optuna_results_table.csv"), index=False)
+
+    print(f"Done! High-res figures and results table are in /{folder_path}")
