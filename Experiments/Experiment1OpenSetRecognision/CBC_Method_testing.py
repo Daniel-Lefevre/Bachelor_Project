@@ -6,6 +6,8 @@ import cv2
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
+import optuna
+import optuna.visualization.matplotlib as vis
 import torch
 import torch.nn as nn
 from PIL import Image
@@ -38,9 +40,10 @@ make_deterministic(SEED)
 
 
 class ImageProcessingML:
-    def __init__(self):
-        self.dimension = 6
-        self.augment_factor = 4
+    def __init__(self, dimension=6, augment_factor=4, threshold=1.5):
+        self.dimension = dimension
+        self.augment_factor = augment_factor
+        self.threshold = threshold
         self.images_per_label = 166
         self.euclidean_minimum_distances = []
 
@@ -93,7 +96,7 @@ class ImageProcessingML:
 
                 normal_tensor = self.preprocess(image).unsqueeze(0).to(self.device)
                 with torch.no_grad():
-                    normal_features = self.feature_extractor(normal_tensor).squeeze().numpy()
+                    normal_features = self.feature_extractor(normal_tensor).squeeze().cpu().numpy()
                 self.training_features.append(normal_features)
                 self.training_labels.append(label_index)
 
@@ -101,7 +104,7 @@ class ImageProcessingML:
                 for j in range(self.augment_factor - 1):
                     rotated_tensor = self.augment_transform(image).unsqueeze(0).to(self.device)
                     with torch.no_grad():
-                        rotated_features = self.feature_extractor(rotated_tensor).squeeze().numpy()
+                        rotated_features = self.feature_extractor(rotated_tensor).squeeze().cpu().numpy()
                     self.training_features.append(rotated_features)
                     self.training_labels.append(label_index)
 
@@ -126,7 +129,7 @@ class ImageProcessingML:
                 euclidean_distances.append(euclidean_distance)
 
             best_index = np.argmax(euclidean_distances)
-            max_euclidean = euclidean_distances[best_index] * 1.5
+            max_euclidean = euclidean_distances[best_index] * self.threshold
             self.euclidean_minimum_distances.append(max_euclidean)
             self.distances.append(euclidean_distances)
 
@@ -325,8 +328,111 @@ class ImageProcessingML:
         plt.show()
 
 
+# 1. Pre-load TEST images into memory
+def load_all_data(script_dir, folder_name):
+    print(f"Loading images from {folder_name}...")
+    dataset = []
+    labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square", "No_Object", "Unidentified_Object"]
+
+    for label in labels:
+        label_path = os.path.join(script_dir, folder_name, label)
+        if not os.path.exists(label_path):
+            continue
+
+        # Get all files in the directory
+        for filename in os.listdir(label_path):
+            if filename.endswith(".jpg") or filename.endswith(".png"):
+                image_path = os.path.join(label_path, filename)
+                img = cv2.imread(image_path)
+                if img is not None:
+                    dataset.append((img, label))
+
+    print(f"Loaded {len(dataset)} images from {folder_name}.")
+    return dataset
+
+
+# 2. The Objective Function
+def objective(trial, test_dataset):
+    # Suggest parameters based on reasonable ML ranges
+    # Note: dimension cannot be higher than (Number of classes - 1), which is 6.
+    dimension = trial.suggest_int("dimension", 2, 6)
+    augment_factor = trial.suggest_int("augment_factor", 1, 5)
+    threshold = trial.suggest_float("threshold", 1.0, 3.0)
+
+    # Initialize the ML class with the trial parameters
+    # This automatically runs _train_model() using the new parameters
+    image_processor = ImageProcessingML(dimension=dimension, augment_factor=augment_factor, threshold=threshold)
+
+    correctly_labeled_images = 0
+    total_images = len(test_dataset)
+
+    # Evaluate the test dataset
+    for img, actual_label in test_dataset:
+        return_label = image_processor.classify_image(img)
+        if return_label == actual_label:
+            correctly_labeled_images += 1
+
+    return correctly_labeled_images / total_images if total_images > 0 else 0
+
+
 if __name__ == "__main__":
-    image_processor = ImageProcessingML()
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    training_dataset = load_all_data(script_dir, "Training_Data")
+    validation_dataset = load_all_data(script_dir, "Validation_Data")
+
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    print("Starting Bayesian Optimization for ResNet+LDA Pipeline...")
+
+    study = optuna.create_study(direction="maximize")
+
+    # Run the optimization
+    study.optimize(lambda trial: objective(trial, validation_dataset), n_trials=50, show_progress_bar=True)
+
+    print("\n--- OPTIMIZATION FINISHED ---")
+    print(f"Best Accuracy Achieved: {round(study.best_value * 100, 2)}%")
+    print("Best Parameters Found:")
+    for key, value in study.best_params.items():
+        print(f"  {key}: {value}")
+
+    # Create the directory if it doesn't exist
+    folder_path = os.path.join(script_dir, "ml_optuna_figures")
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+        print(f"\nCreated folder: {folder_path}")
+
+    print("Generating high-quality thesis figures using Matplotlib...")
+
+    # 1. Optimization History
+    vis.plot_optimization_history(study)
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder_path, "optimization_history.png"), dpi=300)
+    plt.close()
+
+    # 2. Parameter Importances
+    vis.plot_param_importances(study)
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder_path, "param_importances.png"), dpi=300)
+    plt.close()
+
+    # 3. Parallel Coordinate Plot
+    vis.plot_parallel_coordinate(study)
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder_path, "parallel_coordinates.png"), dpi=300)
+    plt.close()
+
+    # 4. Slice Plot
+    vis.plot_slice(study)
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder_path, "parameter_slices.png"), dpi=300)
+    plt.close()
+
+    # 5. Export results to CSV
+    df = study.trials_dataframe()
+    df.to_csv(os.path.join(folder_path, "ml_optuna_results_table.csv"), index=False)
+
+    print(f"Done! High-res figures and results table are in /{folder_path}")
+
     # image_processor.plot_euclidean_distances()
     # image_processor.plot_3d()
     # image_processor.plot_lda_variance()
@@ -338,6 +444,7 @@ if __name__ == "__main__":
     total_validation_time = 0
     total_images = 176
 
+    image_processor = ImageProcessingML(**study.best_params)
     for label in labels:
         number_of_images = 36 if label == "Unidentified_Object" else 20
         for i in range(number_of_images):

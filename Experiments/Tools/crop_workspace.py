@@ -44,9 +44,9 @@ if __name__ == "__main__":
 
     # Define your input and output directories
     # Blue_Circle, Blue_Square, Green_Circle, Green_Square, No_Object, Red_Circle, Red_Square, Unidentified_Object
-    for label in ["Blue_Square"]:
-        input_folder = os.path.join(r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Training_Data_Full", label)
-        output_folder = os.path.join(r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Training_Data", label)
+    for label in ["Unidentified_Object"]:
+        input_folder = os.path.join(r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Test_Data", label)
+        output_folder = os.path.join(r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Test_Data", label)
 
         # Create the output directory if it doesn't already exist
         os.makedirs(output_folder, exist_ok=True)
