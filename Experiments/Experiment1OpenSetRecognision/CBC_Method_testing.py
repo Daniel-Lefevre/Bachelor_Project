@@ -44,7 +44,7 @@ class ImageProcessingML:
         self.dimension = dimension
         self.augment_factor = augment_factor
         self.std_multiplier = std_multiplier
-        self.images_per_label = 166
+        self.images_per_label = 146
         self.euclidean_minimum_distances = []
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
