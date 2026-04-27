@@ -29,17 +29,19 @@ if __name__ == "__main__":
     # 1. The name of the folder next to your script
     FOLDER_NAME = "Validation_Data"
 
-    OBJECT = "Unidentified_Object"
+    objects = ["Blue_Circle", "Blue_Square", "Green_Circle", "Green_Square", "No_Object", "Red_Circle", "Red_Square", "Unidentified_Object"]
+
     MAX_EXPECTED = 210
 
-    # 2. Get the exact directory where this Python script lives
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    for object in objects:
+        # 2. Get the exact directory where this Python script lives
+        script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # 3. Build the full, absolute path to the Training_Data folder
-    target_folder_path = os.path.join(script_dir, FOLDER_NAME, OBJECT)
+        # 3. Build the full, absolute path to the Training_Data folder
+        target_folder_path = os.path.join(script_dir, FOLDER_NAME, object)
 
-    # 4. Check if it exists using the full path
-    if os.path.exists(target_folder_path):
-        fix_by_looping(target_folder_path, MAX_EXPECTED)
-    else:
-        print(f"Error: The folder '{target_folder_path}' does not exist.")
+        # 4. Check if it exists using the full path
+        if os.path.exists(target_folder_path):
+            fix_by_looping(target_folder_path, MAX_EXPECTED)
+        else:
+            print(f"Error: The folder '{target_folder_path}' does not exist.")

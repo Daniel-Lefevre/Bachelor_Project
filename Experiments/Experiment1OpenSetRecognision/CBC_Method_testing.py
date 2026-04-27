@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 from PIL import Image
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+from sklearn.metrics import confusion_matrix
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from torchvision import transforms
@@ -131,10 +132,10 @@ class ImageProcessingML:
             # --- STANDARD DEVIATION MULTIPLIER LOGIC ---
             dist_mean = np.mean(euclidean_distances)
             dist_std = np.std(euclidean_distances)
-            
+
             # Max allowed distance is simply Mean + (Multiplier * Standard Deviation)
             max_euclidean = dist_mean + (self.std_multiplier * dist_std)
-            
+
             self.euclidean_minimum_distances.append(max_euclidean)
             self.distances.append(euclidean_distances)
 
@@ -360,16 +361,12 @@ def objective(trial, test_dataset):
     # Suggest parameters based on reasonable ML ranges
     dimension = trial.suggest_int("dimension", 2, 6)
     augment_factor = trial.suggest_int("augment_factor", 1, 5)
-    
+
     # Standard deviation multiplier (1.0 to 5.0 gives Optuna a clean, linear search space)
     std_multiplier = trial.suggest_float("std_multiplier", 1.0, 5.0)
 
     # Initialize the ML class with the trial parameters
-    image_processor = ImageProcessingML(
-        dimension=dimension, 
-        augment_factor=augment_factor, 
-        std_multiplier=std_multiplier
-    )
+    image_processor = ImageProcessingML(dimension=dimension, augment_factor=augment_factor, std_multiplier=std_multiplier)
 
     correctly_labeled_images = 0
     total_images = len(test_dataset)
@@ -446,12 +443,15 @@ if __name__ == "__main__":
     correctly_labeled_images = 0
     falsy_labeled_images = 0
     total_validation_time = 0
-    total_images = 176
+    total_images = 170
+
+    y_true = []
+    y_pred = []
 
     # Unpacks all the best params found by optuna (including std_multiplier)
     image_processor = ImageProcessingML(**study.best_params)
     for label in labels:
-        number_of_images = 36 if label == "Unidentified_Object" else 20
+        number_of_images = 30 if label == "Unidentified_Object" else 20
         for i in range(number_of_images):
             path = os.path.join(script_dir, "Test_Data", label, f"{i + 1}.jpg")
             image_bgr = cv2.imread(path)
@@ -459,6 +459,9 @@ if __name__ == "__main__":
             start_time = time.perf_counter_ns()
             return_label = image_processor.classify_image(image_bgr)
             total_validation_time += time.perf_counter_ns() - start_time
+
+            y_true.append(label)
+            y_pred.append(return_label)
 
             if return_label == label:
                 correctly_labeled_images += 1
@@ -471,3 +474,52 @@ if __name__ == "__main__":
     print(f"{correctly_labeled_images} ({round(correctly_labeled_images / test_point_sum, 3)}%) were labeled corretly.")
     print(f"{falsy_labeled_images} ({round(falsy_labeled_images / test_point_sum, 3)}%) were labeled incorretly.")
     print(f"Time per image classification in test data: {(total_validation_time / total_images) * 10 ** (-6)} ms")
+
+    print("Generating Confusion Matrix...")
+
+    display_labels = ["Unknown", "Green_Circle", "Green_Square", "Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "background"]
+
+    label_map = {
+        "Unidentified_Object": "Unknown",
+        "No_Object": "background",
+        "Blue_Circle": "Blue_Circle",
+        "Blue_Square": "Blue_Square",
+        "Red_Circle": "Red_Circle",
+        "Red_Square": "Red_Square",
+        "Green_Circle": "Green_Circle",
+        "Green_Square": "Green_Square",
+    }
+
+    # Map the results (This works perfectly because y_true/y_pred are already strings!)
+    y_true_mapped = [label_map.get(lbl, lbl) for lbl in y_true]
+    y_pred_mapped = [label_map.get(lbl, lbl) for lbl in y_pred]
+
+    # Calculate matrix with SWAPPED inputs to force Predicted=Y (rows), True=X (columns)
+    cm = confusion_matrix(y_pred_mapped, y_true_mapped, labels=display_labels)
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
+    im = ax.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
+    ax.figure.colorbar(im, ax=ax)
+
+    # Styles (Updated the labels so they match the swapped data)
+    ax.set(xticks=np.arange(cm.shape[1]), yticks=np.arange(cm.shape[0]), xticklabels=display_labels, yticklabels=display_labels, title="Confusion Matrix (ML Model)", ylabel="Predicted Label", xlabel="True Label")
+    ax.grid(False)
+
+    plt.setp(ax.get_xticklabels(), rotation=90, ha="right", rotation_mode="anchor")
+
+    # Add text annotations
+    thresh = cm.max() / 2.0
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            if cm[i, j] > 0:
+                ax.text(j, i, format(cm[i, j], "d"), ha="center", va="center", color="white" if cm[i, j] > thresh else "black")
+
+    fig.tight_layout(pad=2.0)
+
+    # Save the figure to the ML Optuna folder
+    cm_path = os.path.join(folder_path, "confusion_matrix.png")
+    plt.savefig(cm_path)
+    plt.close()
+
+    print(f"Confusion matrix saved successfully to: {cm_path}")
