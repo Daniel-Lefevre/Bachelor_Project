@@ -122,10 +122,10 @@ class VirtualRobot:
             raise Exception(f"Unknown anomaly: {anomaly}")
 
     def step(self, objec_at_drop_off: bool, object_at_ir: bool) -> tuple[VirtualObject | None, str | None, bool | None] | None:
-        print(f"{self.id}: {self.state.key}")
+        # print(f"{self.id}: {self.state.key}")
         
-        if self.id == 1:
-            print("---------------")
+        # if self.id == 1:
+        #     print("---------------")
         
         # If in setup dont do anything
         if self.state.key == "Setup":

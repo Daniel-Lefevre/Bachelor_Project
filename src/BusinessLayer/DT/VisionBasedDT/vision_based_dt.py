@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from queue import Queue
 from typing import TYPE_CHECKING
+from types import SimpleNamespace
 
 from pyniryo import ObjectColor, ObjectShape
 
@@ -10,7 +11,6 @@ from resources.environment import configuration
 from src.BusinessLayer.DT.virtual_object import VirtualObject
 from src.BusinessLayer.DT.virtual_robot import VirtualRobot
 from src.BusinessLayer.DT.VisionBasedDT.conveyor_cache import ConveyorCache
-from src.BusinessLayer.DT.VisionBasedDT.vision_module import VisionModule
 
 if TYPE_CHECKING:
     from resources.environment import StorageObject
@@ -24,10 +24,7 @@ class VisionBasedDT:
         self.virtual_robots = [VirtualRobot(id, self.step_size) for id in range(configuration["NumberOfRobotArms"])]
         self.robots_dropping_objects = []
         self.anomaly_log_messages = []
-        self.vision_module = VisionModule()
-        self.vision_progress_buffer = 0.1
-        self.conveyor_0_cahce = ConveyorCache(self.step_size)
-        self.conveyor_1_cahce = ConveyorCache(self.step_size)
+        self.conveyor_caches = [ConveyorCache(self.step_size) for id in range(configuration["NumberOfRobotArms"])]
 
     #
     #
@@ -63,7 +60,34 @@ class VisionBasedDT:
     #
     #
 
+    def get_state_snapshot(self) -> SimpleNamespace:
+        objects = []
+        for object in self.virtual_objects:
+            objectInfo = SimpleNamespace(
+                shape=object.shape, 
+                color=object.color, 
+                state=object.get_state(),
+                progress=object.get_progress()
+            )
+            objects.append(objectInfo)
+        
+        robots = []
+        for robot in self.virtual_robots:
+            robotInfo = SimpleNamespace(robot_id=robot.id, state=robot.state)
+            robots.append(robotInfo)
+
+        info = SimpleNamespace(objects=objects, robots=robots)
+
+        return info
+
+
     def step(self) -> None:
+        # Update the conveyor cache
+        # print("Caches:")
+        # for conveyor_id, conveyor_cache in enumerate(self.conveyor_caches):
+        #     print(conveyor_cache.step(self.virtual_robots[conveyor_id].get_conveyor_info))
+        # print("--------------")
+
         # If an event has occured since last step
         leaving_conveyor = None
         while not self.events.empty():
@@ -81,38 +105,22 @@ class VisionBasedDT:
                 for robot in self.virtual_robots:
                     robot.exit_setup()
 
-            elif event_type == "Image":
-                image, robot_id = event_param
-                classified_objects_and_progress = self.vision_module.process_image(image, robot_id)
+            elif event_type == "Update_DT":
+                return_objects, conveyor_cache_entries = event_param
+                for conveyor_cache_entry in conveyor_cache_entries:
+                    self.conveyor_caches[conveyor_cache_entry.conveyor_id].add_to_cache(*conveyor_cache_entry.args)
 
-                for virtual_object in self.virtual_objects:
-                    # Check if the virtual DT object is expected in the image
-                    if virtual_object.get_state().origin == "Conveyor":
-                        # Check if the object is in the image
-                        if (virtual_object.shape, virtual_object.color) in classified_objects_and_progress:
-                            conveyor_id, progress = classified_objects_and_progress[(virtual_object.shape, virtual_object.color)]
-                            # Check if object is on the correct conveyor
-                            if virtual_object.get_state().id == conveyor_id:
-                                # Check if the progress is correct
-                                if abs(virtual_object.get_progress() - progress) <= self.vision_progress_buffer:
-                                    # The DT virtual object matches the object in the image
-                                    continue
-                                # Object is at the wrong place on the conveyor
-                                else:
-                                    # Anomlies: 1, 2, 7
-                                    pass
 
-                            # Objects was not on the correct conveyor
-                            else:
-                                pass
+                # Update all all the virtual objects in the DT based on the feedback from the image taken in vision module
+                for return_object in return_objects:
+                    for virtual_object in self.virtual_objects:
+                        # Find the correct virtual object and check its state is conveyor
+                        if (return_object.color == virtual_object.color and return_object.shape == virtual_object.shape and virtual_object.state.origin == "Conveyor"):
+                            # Update the virtual object
+                            print(return_object.error_correction)
+                            # virtual_object.set_progress(virtual_object.get_progress() + return_object.error_correction)
+                            break
 
-                        # Object was not in image
-                        else:
-                            pass
-
-                    # Object was not expected in the image
-                    else:
-                        pass
 
             elif event_type == "Anomaly 4":
                 robot_id, shape, color = event_param

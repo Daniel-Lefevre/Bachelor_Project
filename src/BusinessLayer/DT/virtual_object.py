@@ -35,6 +35,9 @@ class VirtualObject:
     def get_state(self):
         return self.state
 
+    def set_progress(self, progress: float) -> None:
+        self.current_state_progress = progress * self.current_state_progress_goal
+
     def get_progress(self) -> float:
         return self.current_state_progress / self.current_state_progress_goal
 
@@ -72,6 +75,7 @@ class VirtualObject:
         # if the virtual object has reached an IR sensor
         if activated_ir_id is not None and self.state.origin == "Conveyor" and self.state.id == activated_ir_id:
             # Check if the object has arrived too early
+            print(f"{self.current_state_progress} / {self.current_state_progress_goal}")
             if self.current_state_progress_goal - self.current_state_progress > 1.0:
                 self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 2 or 7 has occured"))
             # Check if the object has arrived too late

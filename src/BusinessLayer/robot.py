@@ -10,6 +10,9 @@ from pyniryo import ConveyorDirection, NiryoRobot, ObjectColor, ObjectShape, Pin
 from resources.environment import configuration
 from resources.PriorityQueue import CustomPriorityQueue
 
+import numpy as np
+np.fromstring = np.frombuffer
+
 
 class RobotArm:
     def __init__(self, ip: str, positions: list[float], id: int, initial_object_positions: list):
@@ -35,6 +38,8 @@ class RobotArm:
         self.object_updates = []
         self.anomaly_updates = []
         self.latest_image = None
+        self.time_of_last_image = 0
+        self.image_time_interval = 1.0
         self.IR = False
         self.rules = {}
         self.lock = threading.Lock()
@@ -111,13 +116,16 @@ class RobotArm:
 
         return "average rate" in output
 
-    def _take_image(self) -> np.ndarray:
-        with self.lock:
+    def _take_image(self) -> None:
+        if self.ID == 1:
+            return
+        if (time.time() - self.time_of_last_image > self.image_time_interval):
             img_compressed = self.robot.get_img_compressed()
             img_bgr = uncompress_image(img_compressed)
             image_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-        return image_rgb
+            self.time_of_last_image = time.time()
+            self.latest_image = image_rgb
 
     def _stop_conveyorbelt(self) -> None:
         self.robot.stop_conveyor(self.conveyor_id)
@@ -231,11 +239,14 @@ class RobotArm:
             return
         with self.lock:
             if self.queue.empty():
+                if self.latest_image is None:
+                    self._take_image()
                 if not self._check_ir():
                     self._start_conveyorbelt()
                 else:
                     self.add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
             else:
+                print("SOmething in queue")
                 self._stop_conveyorbelt()
                 time.sleep(0.5)
                 workarea, shape, color = self.queue.get()
@@ -305,7 +316,7 @@ class RobotArm:
 
     def _move_to_observation_position(self) -> None:
         self.robot.move_pose(*self.observation_pose)
-        # self.latest_image = self._take_image()
+        self._take_image()
 
     def _move_to_observation_position_storage(self) -> None:
         self.robot.move_pose(*self.observation_pose_storage)
