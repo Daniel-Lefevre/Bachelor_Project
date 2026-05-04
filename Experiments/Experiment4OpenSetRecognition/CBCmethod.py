@@ -6,10 +6,13 @@ import cv2
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
+import optuna
+import optuna.visualization as vis
 import torch
 import torch.nn as nn
 from PIL import Image
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+from sklearn.metrics import confusion_matrix
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import Normalizer, StandardScaler
 from torchvision import transforms
@@ -42,9 +45,10 @@ make_deterministic(SEED)
 
 
 class ImageProcessingML:
-    def __init__(self, augment_factor):
+    def __init__(self, dimension, augment_factor, threshold_multiplier):
+        self.dimension = dimension
         self.augment_factor = augment_factor
-        self.euclidean_minimum_distances = []
+        self.threshold_multiplier = threshold_multiplier
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {self.device}")
@@ -77,6 +81,8 @@ class ImageProcessingML:
 
         self.labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square"]
         self._train_model()
+        self.LDA(self.dimension)
+        self.centroids(self.threshold_multiplier)
 
     def format_image(self, image_bgr):
         image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)  # RBB
@@ -97,15 +103,15 @@ class ImageProcessingML:
 
                 normal_tensor = self.preprocess(image).unsqueeze(0).to(self.device)
                 with torch.no_grad():
-                    normal_features = self.feature_extractor(normal_tensor).squeeze().numpy()
+                    normal_features = self.feature_extractor(normal_tensor).squeeze().cpu().numpy()
                 self.training_features.append(normal_features)
                 self.training_labels.append(label_index)
 
                 # 2. Process Slightly Rotated Image
-                for j in range(self.augment_factor - 1):
+                for _ in range(self.augment_factor - 1):
                     rotated_tensor = self.augment_transform(image).unsqueeze(0).to(self.device)
                     with torch.no_grad():
-                        rotated_features = self.feature_extractor(rotated_tensor).squeeze().numpy()
+                        rotated_features = self.feature_extractor(rotated_tensor).squeeze().cpu().numpy()
                     self.training_features.append(rotated_features)
                     self.training_labels.append(label_index)
 
@@ -152,7 +158,6 @@ class ImageProcessingML:
         # Do LDA
         lda = self.pipeline.transform(features_2d)
         lda_vector = lda.squeeze()
-        euclidean_distance_threshold_percentage = []
 
         # Calculate eucledian
         # Calculate raw absolute Euclidean distances to all classes
@@ -367,62 +372,193 @@ class ImageProcessingML:
         plt.show()
 
 
+def load_all_data(script_dir, folder_name):
+    print(f"Loading images from {folder_name}...")
+    dataset = []
+    labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square", "No_Object", "Unidentified_Object"]
+
+    for label in labels:
+        label_path = os.path.join(script_dir, folder_name, label)
+        if not os.path.exists(label_path):
+            continue
+
+        # Get all files in the directory
+        for filename in os.listdir(label_path):
+            if filename.endswith(".jpg") or filename.endswith(".png"):
+                image_path = os.path.join(label_path, filename)
+                img = cv2.imread(image_path)
+                if img is not None:
+                    dataset.append((img, label))
+
+    print(f"Loaded {len(dataset)} images from {folder_name}.")
+    return dataset
+
+
+def objective(trial, test_dataset):
+    # Search Space
+    dim = trial.suggest_int("dimension", 2, 5)
+    aug = trial.suggest_int("augment_factor", 1, 12)
+    thresh = trial.suggest_float("threshold_multiplier", 1, 20)
+
+    processor = ImageProcessingML(dim, aug, thresh)
+
+    correct = 0
+    for img, true_label in test_dataset:
+        if processor.classify_image(img) == true_label:
+            correct += 1
+
+    return correct / len(test_dataset)
+
+
 if __name__ == "__main__":
-    counter = 1
-    experiment_results = []
-    # for augmentation in [1, 3, 5, 7, 10]:
-    for augmentation in [5]:
-        # for augmentation in [1, 3]:
-        image_processor = ImageProcessingML(augmentation)
-        # for dimension in [2, 3, 4, 5]:
-        for dimension in [3]:
-            image_processor.LDA(dimension)
-            # for threshold in [1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.25, 3.5]:
-            for threshold in [2.75]:
-                # for threshold in [2, 3.25]:
-                image_processor.centroids(threshold)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
 
-                # image_processor.plot_euclidean_distances()
-                # image_processor.plot_3d()
-                # image_processor.plot_lda_variance()
-                # image_processor.plot_train_test_1d_distances()
-                labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square", "Unidentified_Object"]
+    training_dataset = load_all_data(script_dir, "Training_Data")
+    validation_dataset = load_all_data(script_dir, "Validation_Data")
 
-                correctly_labeled_images = 0
-                falsy_labeled_images = 0
-                total_validation_time = 0
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-                for label in labels:
-                    number_of_images = test_label_count[label]
-                    for i in range(number_of_images):
-                        path = os.path.join(script_dir, "Test_Data", label, f"{i + 1}.jpg")
+    study = optuna.create_study(direction="maximize")
+    study.optimize(lambda trial: objective(trial, validation_dataset), n_trials=50, show_progress_bar=True)
 
-                        if not os.path.exists(path):
-                            continue
-                        image_bgr = cv2.imread(path)
+    print("\n--- OPTIMIZATION FINISHED ---")
+    print(f"Best Accuracy Achieved: {round(study.best_value * 100, 2)}%")
+    print("Best Parameters Found:")
+    for key, value in study.best_params.items():
+        print(f"  {key}: {value}")
 
-                        start_time = time.perf_counter_ns()
-                        return_label = image_processor.classify_image(image_bgr)
-                        total_validation_time += time.perf_counter_ns() - start_time
+    folder_path = os.path.join(script_dir, "CBC-method_figures")
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+        print(f"\nCreated folder: {folder_path}")
 
-                        if return_label == label:
-                            correctly_labeled_images += 1
-                        else:
-                            falsy_labeled_images += 1
-                            print(label + " classified as " + return_label + " - " + str(i + 1))
+    # 1. Optimization History
+    vis.plot_optimization_history(study)
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder_path, "optimization_history.png"), dpi=300)
+    plt.close()
 
-                test_point_sum = correctly_labeled_images + falsy_labeled_images
-                # print(f"{test_point_sum} test points were labeled.")
-                # print(f"{correctly_labeled_images} ({round(correctly_labeled_images / test_point_sum, 2)}%) were labeled corretly.")
-                # print(f"{falsy_labeled_images} ({round(falsy_labeled_images / test_point_sum, 2)}%) were labeled incorretly.")
-                # print("--------------------------------------------")
-                # if test_point_sum > 0:
-                #     print(f"Time per image classification in validation: {(total_validation_time / test_point_sum) * 10 ** (-6)} ms")
-                print(f"{counter} / 160")
-                counter += 1
-                print(f"Accuacy: {correctly_labeled_images / test_point_sum}")
-                # experiment_results.append({"Augmentation_Factor": augmentation, "LDA_Dimensions": dimension, "Threshold_Multiplier": threshold, "Accuracy": correctly_labeled_images / test_point_sum})
+    # 2. Parameter Importances6
+    vis.plot_param_importances(study)
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder_path, "param_importances.png"), dpi=300)
+    plt.close()
 
-    # df = pd.DataFrame(experiment_results)
-    # csv_path = os.path.join(script_dir, "experiment_results.csv")
-    # df.to_csv(csv_path, index=False)
+    # 3. Parallel Coordinate Plot
+    vis.plot_parallel_coordinate(study)
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder_path, "parallel_coordinates.png"), dpi=300)
+    plt.close()
+
+    # 4. Slice Plot
+    vis.plot_slice(study)
+    plt.tight_layout()
+    plt.savefig(os.path.join(folder_path, "parameter_slices.png"), dpi=300)
+    plt.close()
+
+    # 5. Export results to CSV
+    df = study.trials_dataframe()
+    df.to_csv(os.path.join(folder_path, "ml_optuna_results_table.csv"), index=False)
+
+    print(f"Done! High-res figures and results table are in /{folder_path}")
+
+    dimension = study.best_params["dimension"]
+    augmentation = study.best_params["augment_factor"]
+    std_threshold = study.best_params["threshold_multiplier"]
+
+    image_processor = ImageProcessingML(dimension, augmentation, std_threshold)
+
+    # image_processor.plot_euclidean_distances()
+    # image_processor.plot_3d()
+    # image_processor.plot_lda_variance()
+    # image_processor.plot_train_test_1d_distances()
+    labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square", "Unidentified_Object"]
+
+    correctly_labeled_images = 0
+    falsy_labeled_images = 0
+    total_validation_time = 0
+
+    y_true = []
+    y_pred = []
+
+    for label in labels:
+        number_of_images = test_label_count[label]
+        for i in range(number_of_images):
+            path = os.path.join(script_dir, "Test_Data", label, f"{i + 1}.jpg")
+
+            if not os.path.exists(path):
+                continue
+            image_bgr = cv2.imread(path)
+
+            start_time = time.perf_counter_ns()
+            return_label = image_processor.classify_image(image_bgr)
+            total_validation_time += time.perf_counter_ns() - start_time
+
+            y_true.append(label)
+            y_pred.append(return_label)
+
+            if return_label == label:
+                correctly_labeled_images += 1
+            else:
+                falsy_labeled_images += 1
+                print(label + " classified as " + return_label + " - " + str(i + 1))
+
+    test_point_sum = correctly_labeled_images + falsy_labeled_images
+    # print(f"{test_point_sum} test points were labeled.")
+    print(f"{correctly_labeled_images} ({round(correctly_labeled_images / test_point_sum, 2)}%) were labeled corretly.")
+    print(f"{falsy_labeled_images} ({round(falsy_labeled_images / test_point_sum, 2)}%) were labeled incorretly.")
+    print("--------------------------------------------")
+    if test_point_sum > 0:
+        print(f"Time per image classification in validation: {(total_validation_time / test_point_sum) * 10 ** (-6)} ms")
+    print(f"Accuacy: {correctly_labeled_images / test_point_sum}")
+
+    print("Generating Confusion Matrix...")
+
+    display_labels = ["Unknown", "Green_Circle", "Green_Square", "Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "background"]
+
+    label_map = {
+        "Unidentified_Object": "Unknown",
+        "Blue_Circle": "Blue_Circle",
+        "Blue_Square": "Blue_Square",
+        "Red_Circle": "Red_Circle",
+        "Red_Square": "Red_Square",
+        "Green_Circle": "Green_Circle",
+        "Green_Square": "Green_Square",
+    }
+
+    # Map the results (This works perfectly because y_true/y_pred are already strings!)
+    y_true_mapped = [label_map.get(lbl, lbl) for lbl in y_true]
+    y_pred_mapped = [label_map.get(lbl, lbl) for lbl in y_pred]
+
+    # Calculate matrix with SWAPPED inputs to force Predicted=Y (rows), True=X (columns)
+    cm = confusion_matrix(y_pred_mapped, y_true_mapped, labels=display_labels)
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
+    im = ax.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
+    ax.figure.colorbar(im, ax=ax)
+
+    # Styles (Updated the labels so they match the swapped data)
+    ax.set(xticks=np.arange(cm.shape[1]), yticks=np.arange(cm.shape[0]), xticklabels=display_labels, yticklabels=display_labels, title="Confusion Matrix", ylabel="Predicted Label", xlabel="True Label")
+    ax.grid(False)
+
+    plt.setp(ax.get_xticklabels(), rotation=90, ha="right", rotation_mode="anchor")
+
+    # Add text annotations
+    thresh = cm.max() / 2.0
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            if cm[i, j] > 0:
+                ax.text(j, i, format(cm[i, j], "d"), ha="center", va="center", color="white" if cm[i, j] > thresh else "black")
+
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+    fig.tight_layout(pad=2.0)
+
+    # Save the figure to the ML Optuna folder
+    cm_path = os.path.join(folder_path, "confusion_matrix.png")
+    plt.savefig(cm_path)
+    plt.close()
+
+    print(f"Confusion matrix saved successfully to: {cm_path}")

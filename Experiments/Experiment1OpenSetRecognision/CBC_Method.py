@@ -6,10 +6,12 @@ import cv2
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
+import optuna
 import torch
 import torch.nn as nn
 from PIL import Image
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis as LDA
+from sklearn.metrics import confusion_matrix
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from torchvision import transforms
@@ -38,9 +40,10 @@ make_deterministic(SEED)
 
 
 class ImageProcessingML:
-    def __init__(self):
-        self.dimension = 3
-        self.augment_factor = 4
+    def __init__(self, dimension=6, augment_factor=4, std_multiplier=3.0):
+        self.dimension = dimension
+        self.augment_factor = augment_factor
+        self.std_multiplier = std_multiplier
         self.images_per_label = 146
         self.euclidean_minimum_distances = []
 
@@ -93,7 +96,7 @@ class ImageProcessingML:
 
                 normal_tensor = self.preprocess(image).unsqueeze(0).to(self.device)
                 with torch.no_grad():
-                    normal_features = self.feature_extractor(normal_tensor).squeeze().numpy()
+                    normal_features = self.feature_extractor(normal_tensor).squeeze().cpu().numpy()
                 self.training_features.append(normal_features)
                 self.training_labels.append(label_index)
 
@@ -101,7 +104,7 @@ class ImageProcessingML:
                 for j in range(self.augment_factor - 1):
                     rotated_tensor = self.augment_transform(image).unsqueeze(0).to(self.device)
                     with torch.no_grad():
-                        rotated_features = self.feature_extractor(rotated_tensor).squeeze().numpy()
+                        rotated_features = self.feature_extractor(rotated_tensor).squeeze().cpu().numpy()
                     self.training_features.append(rotated_features)
                     self.training_labels.append(label_index)
 
@@ -125,8 +128,13 @@ class ImageProcessingML:
                 euclidean_distance = np.linalg.norm(x - mean)
                 euclidean_distances.append(euclidean_distance)
 
-            best_index = np.argmax(euclidean_distances)
-            max_euclidean = euclidean_distances[best_index] * 1.5
+            # --- STANDARD DEVIATION MULTIPLIER LOGIC ---
+            dist_mean = np.mean(euclidean_distances)
+            dist_std = np.std(euclidean_distances)
+
+            # Max allowed distance is simply Mean + (Multiplier * Standard Deviation)
+            max_euclidean = dist_mean + (self.std_multiplier * dist_std)
+
             self.euclidean_minimum_distances.append(max_euclidean)
             self.distances.append(euclidean_distances)
 
@@ -153,7 +161,6 @@ class ImageProcessingML:
         if min_euclidean_percentage <= 1:
             return self.labels[best_index]
 
-        # print(min_euclidean)
         return "Unidentified_Object"
 
     def _get_features(self, image):
@@ -325,37 +332,198 @@ class ImageProcessingML:
         plt.show()
 
 
-if __name__ == "__main__":
-    image_processor = ImageProcessingML()
-    # image_processor.plot_euclidean_distances()
-    image_processor.plot_3d()
-    # image_processor.plot_lda_variance()
-    # image_processor.plot_train_test_1d_distances()
+# 1. Pre-load TEST images into memory
+def load_all_data(script_dir, folder_name):
+    print(f"Loading images from {folder_name}...")
+    dataset = []
     labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square", "No_Object", "Unidentified_Object"]
 
-    # correctly_labeled_images = 0
-    # falsy_labeled_images = 0
-    # total_validation_time = 0
-    # total_images = 176
+    for label in labels:
+        label_path = os.path.join(script_dir, folder_name, label)
+        if not os.path.exists(label_path):
+            continue
 
-    # for label in labels:
-    #     number_of_images = 36 if label == "Unidentified_Object" else 20
-    #     for i in range(number_of_images):
-    #         path = os.path.join(script_dir, "Test_Data", label, f"{i + 1}.jpg")
-    #         image_bgr = cv2.imread(path)
+        # Get all files in the directory
+        for filename in os.listdir(label_path):
+            if filename.endswith(".jpg") or filename.endswith(".png"):
+                image_path = os.path.join(label_path, filename)
+                img = cv2.imread(image_path)
+                if img is not None:
+                    dataset.append((img, label))
 
-    #         start_time = time.perf_counter_ns()
-    #         return_label = image_processor.classify_image(image_bgr)
-    #         total_validation_time += time.perf_counter_ns() - start_time
+    print(f"Loaded {len(dataset)} images from {folder_name}.")
+    return dataset
 
-    #         if return_label == label:
-    #             correctly_labeled_images += 1
-    #         else:
-    #             falsy_labeled_images += 1
-    #             print(label + " classified as " + return_label + " - " + str(i + 1))
 
-    # test_point_sum = correctly_labeled_images + falsy_labeled_images
-    # print(f"{test_point_sum} test points were labeled.")
-    # print(f"{correctly_labeled_images} ({round(correctly_labeled_images / test_point_sum, 3)}%) were labeled corretly.")
-    # print(f"{falsy_labeled_images} ({round(falsy_labeled_images / test_point_sum, 3)}%) were labeled incorretly.")
-    # print(f"Time per image classification in test data: {(total_validation_time / total_images) * 10 ** (-6)} ms")
+# 2. The Objective Function
+def objective(trial, test_dataset):
+    # Suggest parameters based on reasonable ML ranges
+    dimension = trial.suggest_int("dimension", 2, 6)
+    augment_factor = trial.suggest_int("augment_factor", 1, 7)
+
+    # Standard deviation multiplier (1.0 to 5.0 gives Optuna a clean, linear search space)
+    std_multiplier = trial.suggest_float("std_multiplier", 1.0, 15.0)
+
+    # Initialize the ML class with the trial parameters
+    image_processor = ImageProcessingML(dimension=dimension, augment_factor=augment_factor, std_multiplier=std_multiplier)
+
+    correctly_labeled_images = 0
+    total_images = len(test_dataset)
+
+    # Evaluate the test dataset
+    for img, actual_label in test_dataset:
+        return_label = image_processor.classify_image(img)
+        if return_label == actual_label:
+            correctly_labeled_images += 1
+
+    return correctly_labeled_images / total_images if total_images > 0 else 0
+
+
+if __name__ == "__main__":
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    training_dataset = load_all_data(script_dir, "Training_Data")
+    validation_dataset = load_all_data(script_dir, "Validation_Data")
+
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    print("Starting Bayesian Optimization for ResNet+LDA Pipeline...")
+
+    # study = optuna.create_study(direction="maximize")
+
+    # Run the optimization
+    # study.optimize(lambda trial: objective(trial, validation_dataset), n_trials=50, show_progress_bar=True)
+
+    print("\n--- OPTIMIZATION FINISHED ---")
+    # print(f"Best Accuracy Achieved: {round(study.best_value * 100, 2)}%")
+    print("Best Parameters Found:")
+    # for key, value in study.best_params.items():
+    # print(f"  {key}: {value}")
+
+    # Create the directory if it doesn't exist
+    folder_path = os.path.join(script_dir, "ml_optuna_figures")
+    # if not os.path.exists(folder_path):
+    #     os.makedirs(folder_path)
+    #     print(f"\nCreated folder: {folder_path}")
+
+    # print("Generating high-quality thesis figures using Matplotlib...")
+
+    # # 1. Optimization History
+    # vis.plot_optimization_history(study)
+    # plt.tight_layout()
+    # plt.savefig(os.path.join(folder_path, "optimization_history.png"), dpi=300)
+    # plt.close()
+
+    # # 2. Parameter Importances6
+    # vis.plot_param_importances(study)
+    # plt.tight_layout()
+    # plt.savefig(os.path.join(folder_path, "param_importances.png"), dpi=300)
+    # plt.close()
+
+    # # 3. Parallel Coordinate Plot
+    # vis.plot_parallel_coordinate(study)
+    # plt.tight_layout()
+    # plt.savefig(os.path.join(folder_path, "parallel_coordinates.png"), dpi=300)
+    # plt.close()
+
+    # # 4. Slice Plot
+    # vis.plot_slice(study)
+    # plt.tight_layout()
+    # plt.savefig(os.path.join(folder_path, "parameter_slices.png"), dpi=300)
+    # plt.close()
+
+    # # 5. Export results to CSV
+    # df = study.trials_dataframe()
+    # df.to_csv(os.path.join(folder_path, "ml_optuna_results_table.csv"), index=False)
+
+    # print(f"Done! High-res figures and results table are in /{folder_path}")
+
+    labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square", "No_Object", "Unidentified_Object"]
+
+    correctly_labeled_images = 0
+    falsy_labeled_images = 0
+    total_validation_time = 0
+    total_images = 170
+
+    y_true = []
+    y_pred = []
+
+    # Unpacks all the best params found by optuna (including std_multiplier)
+    # image_processor = ImageProcessingML(**study.best_params)
+    image_processor = ImageProcessingML(5, 5, 14.392561800124088)
+    # image_processor.plot_train_test_1d_distances()
+    for label in labels:
+        number_of_images = 30 if label == "Unidentified_Object" else 20
+        for i in range(number_of_images):
+            path = os.path.join(script_dir, "Test_Data", label, f"{i + 1}.jpg")
+            image_bgr = cv2.imread(path)
+
+            start_time = time.perf_counter_ns()
+            return_label = image_processor.classify_image(image_bgr)
+            total_validation_time += time.perf_counter_ns() - start_time
+
+            y_true.append(label)
+            y_pred.append(return_label)
+
+            if return_label == label:
+                correctly_labeled_images += 1
+            else:
+                falsy_labeled_images += 1
+                print(label + " classified as " + return_label + " - " + str(i + 1))
+
+    test_point_sum = correctly_labeled_images + falsy_labeled_images
+    print(f"{test_point_sum} test points were labeled.")
+    print(f"{correctly_labeled_images} ({round(correctly_labeled_images / test_point_sum, 3)}%) were labeled corretly.")
+    print(f"{falsy_labeled_images} ({round(falsy_labeled_images / test_point_sum, 3)}%) were labeled incorretly.")
+    print(f"Time per image classification in test data: {(total_validation_time / total_images) * 10 ** (-6)} ms")
+
+    print("Generating Confusion Matrix...")
+
+    display_labels = ["Unknown", "Green_Circle", "Green_Square", "Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "background"]
+
+    label_map = {
+        "Unidentified_Object": "Unknown",
+        "No_Object": "background",
+        "Blue_Circle": "Blue_Circle",
+        "Blue_Square": "Blue_Square",
+        "Red_Circle": "Red_Circle",
+        "Red_Square": "Red_Square",
+        "Green_Circle": "Green_Circle",
+        "Green_Square": "Green_Square",
+    }
+
+    # Map the results (This works perfectly because y_true/y_pred are already strings!)
+    y_true_mapped = [label_map.get(lbl, lbl) for lbl in y_true]
+    y_pred_mapped = [label_map.get(lbl, lbl) for lbl in y_pred]
+
+    # Calculate matrix with SWAPPED inputs to force Predicted=Y (rows), True=X (columns)
+    cm = confusion_matrix(y_pred_mapped, y_true_mapped, labels=display_labels)
+
+    # Plotting
+    fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
+    im = ax.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
+    ax.figure.colorbar(im, ax=ax)
+
+    # Styles (Updated the labels so they match the swapped data)
+    ax.set(xticks=np.arange(cm.shape[1]), yticks=np.arange(cm.shape[0]), xticklabels=display_labels, yticklabels=display_labels, title="Confusion Matrix", ylabel="Predicted Label", xlabel="True Label")
+    ax.grid(False)
+
+    plt.setp(ax.get_xticklabels(), rotation=90, ha="right", rotation_mode="anchor")
+
+    # Add text annotations
+    thresh = cm.max() / 2.0
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            if cm[i, j] > 0:
+                ax.text(j, i, format(cm[i, j], "d"), ha="center", va="center", color="white" if cm[i, j] > thresh else "black")
+
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+    fig.tight_layout(pad=2.0)
+
+    # Save the figure to the ML Optuna folder
+    cm_path = os.path.join(folder_path, "confusion_matrix.png")
+    plt.savefig(cm_path)
+    plt.close()
+
+    print(f"Confusion matrix saved successfully to: {cm_path}")

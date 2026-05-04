@@ -48,7 +48,7 @@ class System:
         # 2. Monitoring Phase
         while self.running:
             arm.loop()
-            time.sleep(0.05)
+            time.sleep(0.1)
 
         # Disconnect when not running
         arm.disconnect()
