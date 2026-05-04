@@ -49,7 +49,7 @@ class VirtualRobot:
         elif self.state.key in ["Storage_to_Standby", "Observation_to_Standby"]:
             if objec_at_drop_off:
                 if self.has_exited_anoamly15:
-                    self.anomaly_logs.append((f"Robot {self.id}", "Anomaly 15 has occured"))
+                    self.anomaly_logs.append((f"Robot {self.id}", "Anomaly 6 has occured"))
                 self.state = self.states["Standby"]
                 self.has_exited_anoamly15 = False
             else:
@@ -103,30 +103,30 @@ class VirtualRobot:
         self.queue.put((priority, virtual_object))
 
     def handle_anomaly(self, anomaly: str):
-        if anomaly == "Anomaly 4":
+        if anomaly == "Anomaly 13":
             if self.state.key in ["Pickup_Conveyor_to_Observation", "Observation_to_Standby", "Observation_to_Place_Storage"]:
                 self.state = self.states["Workspace_Observation_to_Pickup_Conveyor"]
                 self.current_state_progress = 0
                 self.current_state_progress_goal = self.state.time
             else:
-                raise Exception(f"Wrong state for anomaly 4 {self.state}")
-        elif anomaly == "Anomaly 11":
+                raise Exception(f"Wrong state for anomaly 13 {self.state}")
+        elif anomaly == "Anomaly 7":
             if self.state.key in ["Place_Storage_to_Observation", "Place_Conveyor_to_Observation", "Observation", "Workspace_Observation_to_Pickup_Conveyor"]:
                 self.state = self.states["Workspace_Observation_to_Pickup_Conveyor"]
                 self.current_state_progress = 0
                 self.current_state_progress_goal = self.state.time
             else:
                 print(self.state.key)
-                raise Exception(f"Wrong state for anomaly 11 {self.state}")
+                raise Exception(f"Wrong state for anomaly 7 {self.state}")
         else:
             raise Exception(f"Unknown anomaly: {anomaly}")
 
     def step(self, objec_at_drop_off: bool, object_at_ir: bool) -> tuple[VirtualObject | None, str | None, bool | None] | None:
         # print(f"{self.id}: {self.state.key}")
-        
+
         # if self.id == 1:
         #     print("---------------")
-        
+
         # If in setup dont do anything
         if self.state.key == "Setup":
             return None

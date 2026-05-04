@@ -92,20 +92,20 @@ class System:
             for robot_id, robot_arm in enumerate(self.robot_arms):
                 messages = robot_arm.get_anomaly_updates()
                 for message in messages:
-                    if message[0] in ["Anomaly 4 Mitigation failed", "Anomaly 14"]:
+                    if message[0] in ["Anomaly 13 Mitigation failed", "Anomaly 9"]:
                         self._create_dt_anomaly_event(message[0], robot_id)
                         self.stop_system()
-                    elif message[0] == "Anomaly 4":
+                    elif message[0] == "Anomaly 13":
                         id_value, shape, color = message[1]
                         self._create_dt_anomaly_event(message[0], id_value, shape, color)
-                    elif message[0] == "Anomaly 5":
+                    elif message[0] == "Anomaly 3":
                         id_value, shape, color = message[1]
                         self._create_dt_anomaly_event(message[0], id_value, shape, color)
-                        self._anomaly_5_mitigation(id_value, shape, color)
-                    elif message[0] == "Anomaly 11":
+                        self._anomaly_3_mitigation(id_value, shape, color)
+                    elif message[0] == "Anomaly 7":
                         id_value, shape, color = message[1]
                         self._create_dt_anomaly_event(message[0], id_value, shape, color)
-                        self._anomaly_11_mitigation(id_value, shape, color)
+                        self._anomaly_7_mitigation(id_value, shape, color)
 
             time.sleep(0.1)
 
@@ -114,8 +114,8 @@ class System:
         event_param = (robot_id, shape, color)
         self.DT.create_event((eventype, event_param))
 
-    # Create rules for the robotarms to mitigat anomaly 11
-    def _anomaly_11_mitigation(self, robot_id_arrival: int, shape: ObjectShape, color: ObjectColor) -> None:
+    # Create rules for the robotarms to mitigat anomaly 7
+    def _anomaly_7_mitigation(self, robot_id_arrival: int, shape: ObjectShape, color: ObjectColor) -> None:
         # Rules for physical system
         self.robot_arms[robot_id_arrival].set_rules({(shape, color): "Conveyor"})
         self.robot_arms[int(not robot_id_arrival)].set_rules({(shape, color): "Storage"})
@@ -126,8 +126,8 @@ class System:
         self.DT.set_rules([None, {(shape, color): "Conveyor"}]) if robot_id_arrival else self.DT.set_rules([{(shape, color): "Conveyor"}, None])
         self.DT.set_rules([{(shape, color): "Storage"}, None]) if robot_id_arrival else self.DT.set_rules([None, {(shape, color): "Storage"}])
 
-    # Create rules for the robotarms to mitigat anomaly 5
-    def _anomaly_5_mitigation(self, robot_id_arrival: int, shape: ObjectShape, color: ObjectColor) -> None:
+    # Create rules for the robotarms to mitigat anomaly 3
+    def _anomaly_3_mitigation(self, robot_id_arrival: int, shape: ObjectShape, color: ObjectColor) -> None:
         goal_storage_id = None
         for storage_object in self.storage_objects:
             if storage_object.shape == shape and storage_object.color == color:
@@ -259,7 +259,7 @@ class System:
             self.robot_arms[robot_id].drop_object()
 
         for anomaly_log_object in info[1]:
-            if anomaly_log_object[2] in ["Mitigation for anomaly 1, 3, 7, 8, 9 or 10 has failed", "Anomaly 14"]:
+            if anomaly_log_object[2] in ["Mitigation for anomaly 1, 4, 5, 10, 11 or 12 has failed", "Anomaly 9"]:
                 self.stop_system()
 
         return info

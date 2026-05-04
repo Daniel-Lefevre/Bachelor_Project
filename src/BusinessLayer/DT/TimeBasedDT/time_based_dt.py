@@ -75,39 +75,39 @@ class TimeBasedDT:
                 for robot in self.virtual_robots:
                     robot.exit_setup()
 
-            elif event_type == "Anomaly 4":
+            elif event_type == "Anomaly 13":
                 robot_id, shape, color = event_param
-                self.anomaly_log_messages.append((robot_id, configuration["Anomalies"][4]))
-                print(configuration["Anomalies"][4])
+                self.anomaly_log_messages.append((robot_id, configuration["Anomalies"][13]))
+                print(configuration["Anomalies"][13])
                 self.virtual_robots[robot_id].handle_anomaly(event_type)
                 for virt_obj in self.virtual_objects:
                     if virt_obj.shape == shape and virt_obj.color == color:
                         virt_obj.handle_anomaly(event_type)
 
-            elif event_type == "Anomaly 4 Mitigation failed":
+            elif event_type == "Anomaly 13 Mitigation failed":
                 robot_id = event_param
-                self.anomaly_log_messages.append((f"Robot {robot_id}", "Anomaly 4 Mitigation failed"))
-                print("Anomaly 4 Mitigation failed, Human intervention required")
+                self.anomaly_log_messages.append((f"Robot {robot_id}", "Anomaly 13 Mitigation failed"))
+                print("Anomaly 13 Mitigation failed, Human intervention required")
 
-            elif event_type == "Anomaly 5":
+            elif event_type == "Anomaly 3":
                 robot_id_arrival, shape, color = event_param
-                self.anomaly_log_messages.append((f"Robot {robot_id_arrival}", configuration["Anomalies"][5]))
-                print(configuration["Anomalies"][5])
+                self.anomaly_log_messages.append((f"Robot {robot_id_arrival}", configuration["Anomalies"][3]))
+                print(configuration["Anomalies"][3])
                 for virt_obj in self.virtual_objects:
                     if virt_obj.shape == shape and virt_obj.color == color:
-                        virt_obj.handle_anomaly("Anomaly 5", robot_id_arrival)
+                        virt_obj.handle_anomaly("Anomaly 3", robot_id_arrival)
                         self.virtual_robots[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], virt_obj)
 
-            elif event_type == "Anomaly 11":
+            elif event_type == "Anomaly 7":
                 robot_id, shape, color = event_param
-                self.anomaly_log_messages.append((f"Robot {robot_id}", configuration["Anomalies"][11]))
-                print(configuration["Anomalies"][11])
+                self.anomaly_log_messages.append((f"Robot {robot_id}", configuration["Anomalies"][7]))
+                print(configuration["Anomalies"][7])
                 self.virtual_robots[robot_id].handle_anomaly(event_type)
 
-            elif event_type == "Anomaly 14":
+            elif event_type == "Anomaly 9":
                 robot_id = event_param
-                self.anomaly_log_messages.append((f"Robot {robot_id}", configuration["Anomalies"][14]))
-                print(configuration["Anomalies"][14])
+                self.anomaly_log_messages.append((f"Robot {robot_id}", configuration["Anomalies"][9]))
+                print(configuration["Anomalies"][9])
 
             else:
                 print(f"Unknown Event: {event_type}")

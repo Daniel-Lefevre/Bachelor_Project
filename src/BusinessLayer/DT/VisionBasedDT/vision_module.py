@@ -189,9 +189,6 @@ class VisionModule:
 
         for cropped_object, center in cropped_images_and_centers:
             predicted_class_name = self._classify_object(cropped_object)
-            if robot_id == 1:
-                cv2.imwrite("cropped_circle.jpg", cropped_object)
-                cv2.imwrite("full_image.jpg", image)
             conveyor_id, progress = self._object_regression(center, robot_id)
             # If objects on this robots conveyor belt, and an object is currently beeing placed
             if conveyor_id == robot_id and opposite_robot_state_key in ["Standby_to_Place_Conveyor", "Place_Conveyor_to_Observation"]:

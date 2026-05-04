@@ -51,16 +51,16 @@ class VirtualObject:
 
     # Handles the different anomaly cases for the virutal object
     def handle_anomaly(self, anomaly: str, params=None):
-        if anomaly == "Anomaly 4":
+        if anomaly == "Anomaly 13":
             # If the robot arm fails to pick up the object from the conveyor, then the state is set back down to the IR sensor
             if self.state.origin == "Robot":
                 self.state = self.states[f"IR_{self.state.id}"]
                 self.current_state_progress = 0
                 self.current_state_progress_goal = self.state.time
             else:
-                raise Exception(f"Wrong state for anomaly 4: {self.state}")
+                raise Exception(f"Wrong state for anomaly 13: {self.state}")
 
-        elif anomaly == "Anomaly 5":
+        elif anomaly == "Anomaly 3":
             # if the wrong object is detected by a robot, then the found objects state should be set down to the IR sensor where it appeared
             robot_arrival_id = params
             self.state = self.states[f"IR_{robot_arrival_id}"]
@@ -77,10 +77,10 @@ class VirtualObject:
             # Check if the object has arrived too early
             print(f"{self.current_state_progress} / {self.current_state_progress_goal}")
             if self.current_state_progress_goal - self.current_state_progress > 1.0:
-                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 2 or 7 has occured"))
+                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 2 or 4 has occured"))
             # Check if the object has arrived too late
             elif self.current_state_progress_goal - self.current_state_progress < -1.0:
-                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 1 or 7 has occured"))
+                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 1 or 4 has occured"))
                 self.time_object_went_missing = None
 
             # Since either anomaly group has the mitigation to continue, then continue
@@ -92,12 +92,12 @@ class VirtualObject:
         # if the object has not reached an IR sensor and is arriving late then a larger group of anomalies has occured
         elif self.current_state_progress_goal - self.current_state_progress < -1.0:
             if self.time_object_went_missing is None:
-                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 1, 3, 7, 8, 9 or 10 has occured"))
+                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 1, 4, 5, 10, 11 or 12 has occured"))
                 self.time_object_went_missing = time.time()
 
             # if more than 10 seconds has gone by without the object arriving at the IR sensor then cast anomaly that shuts down the system
             elif time.time() - self.time_object_went_missing > 10:
-                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Mitigation for anomaly 1, 3, 7, 8, 9 or 10 has failed"))
+                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Mitigation for anomaly 1, 4, 5, 10, 11 or 12 has failed"))
 
         # if the virtual object has been placed on a conveyor then update the object
         elif placed_position == "Conveyor":

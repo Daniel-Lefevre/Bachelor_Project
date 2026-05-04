@@ -189,7 +189,7 @@ class RobotArm:
 
         if not obj_found:
             if destination is not None:  # Object is taken from storage
-                self.anomaly_updates.append(("Anomaly 14",))
+                self.anomaly_updates.append(("Anomaly 9",))
 
         else:
             # print(f"++++++++++Object found: {shape_ret}, {color_ret}++++++++++++")
@@ -197,9 +197,9 @@ class RobotArm:
             if destination is None:
                 area = self.rules.get((shape_ret, color_ret))
                 if area is None:
-                    # The wrong object is on the conveyor belt, cast anomaly 5
+                    # The wrong object is on the conveyor belt, cast anomaly 3
                     self.set_mitigation_mode(True)
-                    self.anomaly_updates.append(("Anomaly 5", (self.ID, shape_ret, color_ret)))
+                    self.anomaly_updates.append(("Anomaly 3", (self.ID, shape_ret, color_ret)))
                     return
 
                 if area == "Storage":
@@ -212,7 +212,7 @@ class RobotArm:
                             break
                         elif i == len(self.occupied_storage) - 1:
                             self.set_mitigation_mode(True)
-                            self.anomaly_updates.append(("Anomaly 11", (self.ID, shape_ret, color_ret)))
+                            self.anomaly_updates.append(("Anomaly 7", (self.ID, shape_ret, color_ret)))
                             return
                 elif area == "Conveyor":
                     destination = self.place_conveyor
@@ -355,15 +355,15 @@ class RobotArm:
         if self._check_ir():
             if self.pick_and_place_first_try:
                 self.pick_and_place_first_try = False
-                # Robot arm has failed to pickup object from the conveyor, cast anomaly 4
-                self.anomaly_updates.append(("Anomaly 4", (self.ID, shape, color)))
+                # Robot arm has failed to pickup object from the conveyor, cast anomaly 13
+                self.anomaly_updates.append(("Anomaly 13", (self.ID, shape, color)))
                 self.remove_object_from_storage(shape, color)
                 self._release_with_tool()
                 self._find_and_move_object(workspace, shape, color, None)
                 return
             else:
                 self.remove_object_from_storage(shape, color)
-                self.anomaly_updates.append(("Anomaly 4 Mitigation failed",))
+                self.anomaly_updates.append(("Anomaly 13 Mitigation failed",))
                 return
 
         self._move_to_observation_position()

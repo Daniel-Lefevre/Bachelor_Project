@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from pyniryo import ObjectColor, ObjectShape
-    from src.BusinessLayer.DT.virtual_conveyor import VirtualConveyor
+
 
 @dataclass
 class CacheEntry:
@@ -26,7 +26,7 @@ class ConveyorCache:
         self.progress_threshold = 1 / 3
         self.last_status = None
         self.status_time = 0
-    
+
     ### Private functions
 
     def _valid_entry(self, entry: CacheEntry) -> bool:
@@ -53,7 +53,7 @@ class ConveyorCache:
             return status
 
         return "Normal"
-    
+
     ### Public fucntions
     def add_to_cache(self, shape: ObjectShape, color: ObjectColor, progress: float, status: str) -> None:
         entry = CacheEntry(shape, color, progress, status, self.entry_life_time)
@@ -63,7 +63,7 @@ class ConveyorCache:
 
     def step(self, conveyor_running: bool) -> str | None:
         for entry in self.cache[:]:
-            if (conveyor_running):
+            if conveyor_running:
                 entry.time_to_live -= self.step_size
 
             if entry.time_to_live <= 0:
