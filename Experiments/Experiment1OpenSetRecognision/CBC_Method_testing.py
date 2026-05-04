@@ -265,73 +265,84 @@ class ImageProcessingML:
         plt.show()
 
     def plot_train_test_1d_distances(self):
-        print("Plotting 1D Train/Test Distances...")
-        fig, ax = plt.subplots(figsize=(10, 6))
+            print("Plotting 1D Train/Validation/Test Distances...")
+            fig, ax = plt.subplots(figsize=(12, 7))
 
-        # Iterate over known classes only
-        for i, label in enumerate(self.labels):
-            # --- Format the label to remove underscores ---
-            display_label = label.replace("_", " ")
+            # Iterate over known classes only
+            for i, label in enumerate(self.labels):
+                display_label = label.replace("_", " ")
 
-            # --- 1. Plot Training Distances (Red) ---
-            train_dists = self.distances[i]
-            y_values_train = [display_label] * len(train_dists)
+                # --- 1. Plot Training Distances (Red) ---
+                train_dists = self.distances[i]
+                y_values_train = [display_label] * len(train_dists)
+                ax.scatter(train_dists, y_values_train, color="#d32f2f", alpha=0.2, s=20, 
+                        edgecolors="none", zorder=3, label="Training" if i == 0 else "")
 
-            ax.scatter(train_dists, y_values_train, color="#d32f2f", alpha=0.3, s=25, edgecolors="none", zorder=3, label="Training" if i == 0 else "")
+                # --- 2. Calculate & Plot Validation Distances (Green) ---
+                # Using the same logic as test data to grab validation samples
+                val_dists = []
+                val_folder = os.path.join(script_dir, "Validation_Data", label)
+                if os.path.exists(val_folder):
+                    for filename in os.listdir(val_folder):
+                        if filename.endswith(".jpg"):
+                            path = os.path.join(val_folder, filename)
+                            image_bgr = cv2.imread(path)
+                            image = self.format_image(image_bgr)
+                            features = self._get_features(image).reshape(1, -1)
+                            lda_vector = self.pipeline.transform(features).squeeze()
+                            
+                            dist = np.linalg.norm(self.means[i] - lda_vector)
+                            val_dists.append(dist)
 
-            # --- 2. Calculate & Plot Testing Distances (Blue) ---
-            test_dists = []
-            number_of_images = 20
+                y_values_val = [display_label] * len(val_dists)
+                ax.scatter(val_dists, y_values_val, color="#2e7d32", alpha=0.5, s=40, 
+                        marker="D", edgecolors="none", zorder=4, label="Validation" if i == 0 else "")
 
-            for j in range(number_of_images):
-                path = os.path.join(script_dir, "Test_Data", label, f"{j + 1}.jpg")
-                if not os.path.exists(path):
-                    continue
+                # --- 3. Calculate & Plot Testing Distances (Blue) ---
+                test_dists = []
+                number_of_images = 20
+                for j in range(number_of_images):
+                    path = os.path.join(script_dir, "Test_Data", label, f"{j + 1}.jpg")
+                    if not os.path.exists(path): continue
 
-                image_bgr = cv2.imread(path)
-                image = self.format_image(image_bgr)
+                    image_bgr = cv2.imread(path)
+                    image = self.format_image(image_bgr)
+                    features = self._get_features(image).reshape(1, -1)
+                    lda_vector = self.pipeline.transform(features).squeeze()
 
-                features = self._get_features(image).reshape(1, -1)
-                lda_vector = self.pipeline.transform(features).squeeze()
+                    dist = np.linalg.norm(self.means[i] - lda_vector)
+                    test_dists.append(dist)
 
-                mean = self.means[i]
-                euclidean_dist = np.linalg.norm(mean - lda_vector)
-                test_dists.append(euclidean_dist)
+                y_values_test = [display_label] * len(test_dists)
+                ax.scatter(test_dists, y_values_test, color="#0288d1", alpha=0.7, s=30, 
+                        edgecolors="none", zorder=5, label="Testing" if i == 0 else "")
 
-            y_values_test = [display_label] * len(test_dists)
+            # --- Aesthetics & Formatting ---
+            ax.set_xlabel("Euclidean Distance to Centroid", fontsize=11, fontweight="bold")
+            ax.set_xlim(left=0)
 
-            ax.scatter(test_dists, y_values_test, color="#0288d1", alpha=0.6, s=30, edgecolors="none", zorder=4, label="Testing" if i == 0 else "")
+            # Style the Y-axis
+            ax.tick_params(axis="y", labelsize=11, length=0)
+            for label in ax.get_yticklabels():
+                label.set_fontweight("bold")
 
-        # --- 3. Aesthetics & Formatting ---
-        ax.set_xlabel("Euclidean Distance to Centroid", fontsize=11, fontweight="bold")
+            ax.grid(True, axis="y", linestyle="-", color="#e0e0e0", linewidth=1, zorder=0)
 
-        # --- Force the X-axis to start at 0 ---
-        ax.set_xlim(left=0)
+            # Spines
+            for spine in ["top", "right", "left"]:
+                ax.spines[spine].set_visible(False)
+            ax.spines["bottom"].set_color("#cccccc")
 
-        # Style the Y-axis labels
-        ax.tick_params(axis="y", labelsize=11, length=0)
-        for label in ax.get_yticklabels():
-            label.set_fontweight("bold")
+            # Legend
+            legend = ax.legend(frameon=True, facecolor="white", framealpha=1.0, 
+                            edgecolor="#cccccc", loc="upper right", fontsize=11)
+            for handle in legend.legend_handles:
+                handle.set_alpha(1.0)
+                handle.set_sizes([60])
 
-        # Add subtle horizontal lines to visually separate the classes
-        ax.grid(True, axis="y", linestyle="-", color="#e0e0e0", linewidth=1, zorder=0)
-
-        # Clean up the bounding box
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-        ax.spines["left"].set_visible(False)
-        ax.spines["bottom"].set_color("#cccccc")
-
-        # --- Legend in a solid white box ---
-        legend = ax.legend(frameon=True, facecolor="white", framealpha=1.0, edgecolor="#cccccc", loc="upper right", fontsize=11)
-        for handle in legend.legend_handles:
-            handle.set_alpha(1.0)
-            handle.set_sizes([60])
-
-        ax.invert_yaxis()  # Put the first class at the top
-        plt.tight_layout()
-        plt.show()
-
+            ax.invert_yaxis()
+            plt.tight_layout()
+            plt.show()
 
 # 1. Pre-load TEST images into memory
 def load_all_data(script_dir, folder_name):
@@ -383,143 +394,18 @@ def objective(trial, test_dataset):
 if __name__ == "__main__":
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    training_dataset = load_all_data(script_dir, "Training_Data")
-    validation_dataset = load_all_data(script_dir, "Validation_Data")
-
-    optuna.logging.set_verbosity(optuna.logging.WARNING)
-    print("Starting Bayesian Optimization for ResNet+LDA Pipeline...")
-
-    study = optuna.create_study(direction="maximize")
-
-    # Run the optimization
-    study.optimize(lambda trial: objective(trial, validation_dataset), n_trials=50, show_progress_bar=True)
-
-    print("\n--- OPTIMIZATION FINISHED ---")
-    print(f"Best Accuracy Achieved: {round(study.best_value * 100, 2)}%")
-    print("Best Parameters Found:")
-    for key, value in study.best_params.items():
-        print(f"  {key}: {value}")
-
-    # Create the directory if it doesn't exist
-    folder_path = os.path.join(script_dir, "ml_optuna_figures")
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
-        print(f"\nCreated folder: {folder_path}")
-
-    print("Generating high-quality thesis figures using Matplotlib...")
-
-    # 1. Optimization History
-    vis.plot_optimization_history(study)
-    plt.tight_layout()
-    plt.savefig(os.path.join(folder_path, "optimization_history.png"), dpi=300)
-    plt.close()
-
-    # 2. Parameter Importances
-    vis.plot_param_importances(study)
-    plt.tight_layout()
-    plt.savefig(os.path.join(folder_path, "param_importances.png"), dpi=300)
-    plt.close()
-
-    # 3. Parallel Coordinate Plot
-    vis.plot_parallel_coordinate(study)
-    plt.tight_layout()
-    plt.savefig(os.path.join(folder_path, "parallel_coordinates.png"), dpi=300)
-    plt.close()
-
-    # 4. Slice Plot
-    vis.plot_slice(study)
-    plt.tight_layout()
-    plt.savefig(os.path.join(folder_path, "parameter_slices.png"), dpi=300)
-    plt.close()
-
-    # 5. Export results to CSV
-    df = study.trials_dataframe()
-    df.to_csv(os.path.join(folder_path, "ml_optuna_results_table.csv"), index=False)
-
-    print(f"Done! High-res figures and results table are in /{folder_path}")
-
-    labels = ["Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "Green_Circle", "Green_Square", "No_Object", "Unidentified_Object"]
-
-    correctly_labeled_images = 0
-    falsy_labeled_images = 0
-    total_validation_time = 0
-    total_images = 170
-
-    y_true = []
-    y_pred = []
-
-    # Unpacks all the best params found by optuna (including std_multiplier)
-    image_processor = ImageProcessingML(**study.best_params)
-    for label in labels:
-        number_of_images = 30 if label == "Unidentified_Object" else 20
-        for i in range(number_of_images):
-            path = os.path.join(script_dir, "Test_Data", label, f"{i + 1}.jpg")
-            image_bgr = cv2.imread(path)
-
-            start_time = time.perf_counter_ns()
-            return_label = image_processor.classify_image(image_bgr)
-            total_validation_time += time.perf_counter_ns() - start_time
-
-            y_true.append(label)
-            y_pred.append(return_label)
-
-            if return_label == label:
-                correctly_labeled_images += 1
-            else:
-                falsy_labeled_images += 1
-                print(label + " classified as " + return_label + " - " + str(i + 1))
-
-    test_point_sum = correctly_labeled_images + falsy_labeled_images
-    print(f"{test_point_sum} test points were labeled.")
-    print(f"{correctly_labeled_images} ({round(correctly_labeled_images / test_point_sum, 3)}%) were labeled corretly.")
-    print(f"{falsy_labeled_images} ({round(falsy_labeled_images / test_point_sum, 3)}%) were labeled incorretly.")
-    print(f"Time per image classification in test data: {(total_validation_time / total_images) * 10 ** (-6)} ms")
-
-    print("Generating Confusion Matrix...")
-
-    display_labels = ["Unknown", "Green_Circle", "Green_Square", "Blue_Circle", "Blue_Square", "Red_Circle", "Red_Square", "background"]
-
-    label_map = {
-        "Unidentified_Object": "Unknown",
-        "No_Object": "background",
-        "Blue_Circle": "Blue_Circle",
-        "Blue_Square": "Blue_Square",
-        "Red_Circle": "Red_Circle",
-        "Red_Square": "Red_Square",
-        "Green_Circle": "Green_Circle",
-        "Green_Square": "Green_Square",
+    # 1. Set your preferred parameters manually
+    # (These replace the values Optuna would have found)
+    best_params = {
+        "dimension": 5,
+        "augment_factor": 5,
+        "std_multiplier": 14.39
     }
 
-    # Map the results (This works perfectly because y_true/y_pred are already strings!)
-    y_true_mapped = [label_map.get(lbl, lbl) for lbl in y_true]
-    y_pred_mapped = [label_map.get(lbl, lbl) for lbl in y_pred]
+    print("Initializing Image Processor with manual parameters...")
+    # 2. Create the class instance
+    image_processor = ImageProcessingML(**best_params)
 
-    # Calculate matrix with SWAPPED inputs to force Predicted=Y (rows), True=X (columns)
-    cm = confusion_matrix(y_pred_mapped, y_true_mapped, labels=display_labels)
-
-    # Plotting
-    fig, ax = plt.subplots(figsize=(10, 8), dpi=300)
-    im = ax.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
-    ax.figure.colorbar(im, ax=ax)
-
-    # Styles (Updated the labels so they match the swapped data)
-    ax.set(xticks=np.arange(cm.shape[1]), yticks=np.arange(cm.shape[0]), xticklabels=display_labels, yticklabels=display_labels, title="Confusion Matrix (ML Model)", ylabel="Predicted Label", xlabel="True Label")
-    ax.grid(False)
-
-    plt.setp(ax.get_xticklabels(), rotation=90, ha="right", rotation_mode="anchor")
-
-    # Add text annotations
-    thresh = cm.max() / 2.0
-    for i in range(cm.shape[0]):
-        for j in range(cm.shape[1]):
-            if cm[i, j] > 0:
-                ax.text(j, i, format(cm[i, j], "d"), ha="center", va="center", color="white" if cm[i, j] > thresh else "black")
-
-    fig.tight_layout(pad=2.0)
-
-    # Save the figure to the ML Optuna folder
-    cm_path = os.path.join(folder_path, "confusion_matrix.png")
-    plt.savefig(cm_path)
-    plt.close()
-
-    print(f"Confusion matrix saved successfully to: {cm_path}")
+    # 3. Create the plot
+    # This will now include Train (Red), Validation (Green), and Test (Blue)
+    image_processor.plot_train_test_1d_distances()

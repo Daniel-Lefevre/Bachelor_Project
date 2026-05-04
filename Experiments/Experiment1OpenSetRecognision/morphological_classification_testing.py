@@ -39,7 +39,7 @@ def objective(trial, dataset):
     radius_max = trial.suggest_float("radius_max", 38, 55)
     length_min = trial.suggest_float("length_min", 85, 99)
     length_max = trial.suggest_float("length_max", 100, 115)
-    no_object_threshold = trial.suggest_float("no_object_threshold", 10, 1000)
+    no_object_threshold = trial.suggest_float("no_object_threshold", 10, 1000) 
 
     image_processor = ImageProcessing()  # Add your crop points here
 
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     study = optuna.create_study(direction="maximize")
 
     # Use a lambda to pass the dataset into the objective function
-    study.optimize(lambda trial: objective(trial, preloaded_dataset), n_trials=100, show_progress_bar=True, n_jobs=-1)
+    study.optimize(lambda trial: objective(trial, preloaded_dataset), n_trials=5, show_progress_bar=True, n_jobs=-1)
 
     print("\n--- OPTIMIZATION FINISHED ---")
     print(f"Best Accuracy Achieved: {round(study.best_value * 100, 2)}%")
