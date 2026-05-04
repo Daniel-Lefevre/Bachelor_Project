@@ -10,7 +10,6 @@ from pyniryo import ConveyorDirection, NiryoRobot, ObjectColor, ObjectShape, Pin
 from resources.environment import configuration
 from resources.PriorityQueue import CustomPriorityQueue
 
-import numpy as np
 np.fromstring = np.frombuffer
 
 
@@ -46,11 +45,13 @@ class RobotArm:
         self.mitigation_mode = False
         self.pick_and_place_first_try = True
         self.ready_to_drop = False
+        self.conveyor_is_running = True
 
     def get_ir(self) -> bool:
         return self.IR
 
     def _start_conveyorbelt(self) -> None:
+        self.conveyor_is_running = True
         self.robot.run_conveyor(self.conveyor_id, speed=self.conveyor_speed, direction=ConveyorDirection.BACKWARD)
         # self.robot.run_conveyor(self.conveyor_id, speed=0, direction=ConveyorDirection.BACKWARD)
 
@@ -117,17 +118,18 @@ class RobotArm:
         return "average rate" in output
 
     def _take_image(self) -> None:
-        if self.ID == 1:
-            return
-        if (time.time() - self.time_of_last_image > self.image_time_interval):
+        current_time = time.time()
+        if current_time - self.time_of_last_image > self.image_time_interval:
+            print(f"Time since last image: {current_time - self.time_of_last_image}")
             img_compressed = self.robot.get_img_compressed()
             img_bgr = uncompress_image(img_compressed)
             image_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
-            self.time_of_last_image = time.time()
+            self.time_of_last_image = current_time
             self.latest_image = image_rgb
 
     def _stop_conveyorbelt(self) -> None:
+        self.conveyor_is_running = False
         self.robot.stop_conveyor(self.conveyor_id)
 
     def _move_to_standby_position(self) -> None:
@@ -242,7 +244,8 @@ class RobotArm:
                 if self.latest_image is None:
                     self._take_image()
                 if not self._check_ir():
-                    self._start_conveyorbelt()
+                    if not self.conveyor_is_running:
+                        self._start_conveyorbelt()
                 else:
                     self.add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
             else:
@@ -337,7 +340,7 @@ class RobotArm:
                 elif time.time() - start_time > 1:
                     self._start_conveyorbelt()
 
-                time.sleep(0.01)
+                time.sleep(0.1)
 
             self._stop_conveyorbelt()
             self.ready_to_drop = False

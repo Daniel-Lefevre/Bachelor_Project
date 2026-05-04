@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime
 from queue import Queue
-from typing import TYPE_CHECKING
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 from pyniryo import ObjectColor, ObjectShape
 
@@ -63,14 +63,9 @@ class VisionBasedDT:
     def get_state_snapshot(self) -> SimpleNamespace:
         objects = []
         for object in self.virtual_objects:
-            objectInfo = SimpleNamespace(
-                shape=object.shape, 
-                color=object.color, 
-                state=object.get_state(),
-                progress=object.get_progress()
-            )
+            objectInfo = SimpleNamespace(shape=object.shape, color=object.color, state=object.get_state(), progress=object.get_progress())
             objects.append(objectInfo)
-        
+
         robots = []
         for robot in self.virtual_robots:
             robotInfo = SimpleNamespace(robot_id=robot.id, state=robot.state)
@@ -79,7 +74,6 @@ class VisionBasedDT:
         info = SimpleNamespace(objects=objects, robots=robots)
 
         return info
-
 
     def step(self) -> None:
         # Update the conveyor cache
@@ -110,17 +104,15 @@ class VisionBasedDT:
                 for conveyor_cache_entry in conveyor_cache_entries:
                     self.conveyor_caches[conveyor_cache_entry.conveyor_id].add_to_cache(*conveyor_cache_entry.args)
 
-
                 # Update all all the virtual objects in the DT based on the feedback from the image taken in vision module
                 for return_object in return_objects:
                     for virtual_object in self.virtual_objects:
                         # Find the correct virtual object and check its state is conveyor
-                        if (return_object.color == virtual_object.color and return_object.shape == virtual_object.shape and virtual_object.state.origin == "Conveyor"):
+                        if return_object.color == virtual_object.color and return_object.shape == virtual_object.shape and virtual_object.state.origin == "Conveyor":
                             # Update the virtual object
                             print(return_object.error_correction)
-                            # virtual_object.set_progress(virtual_object.get_progress() + return_object.error_correction)
+                            virtual_object.set_progress(virtual_object.get_progress() + return_object.error_correction)
                             break
-
 
             elif event_type == "Anomaly 4":
                 robot_id, shape, color = event_param

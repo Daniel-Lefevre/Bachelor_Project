@@ -70,7 +70,7 @@ def objective(trial):
     optimizer = optim.Adam(model.fc.parameters(), lr=lr)
 
     # --- D. TRAINING LOOP ---
-    epochs = 15  # Keep epochs lower for hyperparameter tuning!
+    epochs = 30  # Keep epochs lower for hyperparameter tuning!
     best_val_acc = 0.0
 
     for epoch in range(epochs):

@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 import os
+from types import SimpleNamespace
 
+import cv2
 import numpy as np
 import torch
-from typing import TYPE_CHECKING
 import torch.nn as nn
 import torch.nn.functional as F
 from pyniryo import ObjectColor, ObjectShape
 from torchvision import transforms
 from torchvision.models import resnet18
 from ultralytics import YOLO
-import cv2
-from types import SimpleNamespace
+
 
 class VisionModule:
     def __init__(self):
@@ -149,30 +149,17 @@ class VisionModule:
         shape = ObjectShape.SQUARE if parts[1] == "Square" else ObjectShape.CIRCLE
         color = ObjectColor.RED if parts[0] == "Red" else ObjectColor.BLUE if parts[0] == "Blue" else ObjectColor.GREEN
         return (shape, color)
-    
 
     def _crop_out_conveyor(self, image, robot_id) -> np.ndarray:
-        # Robot 0
-        # if (robot_id == 0):
-        #     points1 = np.array([[0, 0], [165, 0], [92, 216], [62, 479], [0, 479]], np.int32)
-        #     points2 = np.array([[257, 0], [212, 202], [179, 479], [330, 479], [344, 0]], np.int32)
-        #     points3 = np.array([[433, 0], [446, 310], [433, 479], [639, 479], [639, 0]], np.int32)
-        # elif (robot_id == 1):
-        #     points1 = np.array([[0, 0], [133, 0], [69, 227], [66, 479], [0, 479]], np.int32)
-        #     points2 = np.array([[294, 0], [302, 479], [167, 479], [189, 52], [206, 0]], np.int32)
-        #     points3 = np.array([[380, 0], [425, 335], [425, 479], [639, 479], [639, 0]], np.int32)
-
-        if (robot_id == 0):
+        if robot_id == 0:
             points1 = np.array([[0, 0], [167, 0], [100, 203], [52, 479], [0, 479]], np.int32)
             points2 = np.array([[250, 0], [332, 0], [324, 374], [310, 479], [175, 479], [195, 239]], np.int32)
             points3 = np.array([[418, 0], [639, 0], [639, 479], [426, 479], [434, 252]], np.int32)
 
-        elif (robot_id == 1):
-            points1 = np.array([[0, 0], [149, 0], [100, 206], [80, 479], [0, 479]], np.int32)
-            points2 = np.array([[231, 0], [320, 0], [314, 479], [189, 479], [211, 48]], np.int32)
-            points3 = np.array([[407, 0], [639, 0], [639, 479], [443, 479], [435, 172]], np.int32)
-
-        
+        elif robot_id == 1:
+            points1 = np.array([[0, 0], [139, 0], [90, 206], [70, 479], [0, 479]], np.int32)
+            points2 = np.array([[221, 0], [310, 0], [304, 479], [179, 479], [201, 48]], np.int32)
+            points3 = np.array([[397, 0], [629, 0], [629, 479], [433, 479], [425, 172]], np.int32)
 
         # 2. Reshape the points for OpenCV
         # fillPoly expects an array of "polygons", so we wrap our points in a list
@@ -207,16 +194,18 @@ class VisionModule:
                 cv2.imwrite("full_image.jpg", image)
             conveyor_id, progress = self._object_regression(center, robot_id)
             # If objects on this robots conveyor belt, and an object is currently beeing placed
-            if (conveyor_id == robot_id and opposite_robot_state_key in ["Standby_to_Place_Conveyor", "Place_Conveyor_to_Observation"]):
+            if conveyor_id == robot_id and opposite_robot_state_key in ["Standby_to_Place_Conveyor", "Place_Conveyor_to_Observation"]:
                 # Check object isn't in the 'danger zone'
                 progress_threshold = {0: 0.14324481705333333, 1: 0.10813231460442708}
-                if progress < progress_threshold[robot_id]: continue
+                if progress < progress_threshold[robot_id]:
+                    continue
             # If object is on opposite conveyor belt, and an object i currently beeing picked up
-            elif (conveyor_id != robot_id and opposite_robot_state_key in ["Pickup_Conveyor_to_Observation", "Workspace_Observation_to_Pickup_Conveyor"]):
+            elif conveyor_id != robot_id and opposite_robot_state_key in ["Pickup_Conveyor_to_Observation", "Workspace_Observation_to_Pickup_Conveyor"]:
                 # Check object isn't in the 'danger zone'
                 progress_threshold = {0: 0.7756544934440002, 1: 0.8160349564741668}
-                if progress > progress_threshold[robot_id]: continue
-                
+                if progress > progress_threshold[robot_id]:
+                    continue
+
             object_appearance = self._convert_string_to_object(predicted_class_name)
             classified_objects_and_progress.append((object_appearance, conveyor_id, progress))
 
@@ -229,17 +218,15 @@ class VisionModule:
         opposite_id = 0 if robot_id == 1 else 1
         opposite_robot_state_key = virtual_robots[opposite_id].state.key
         classified_objects_and_progress = self.process_image(image, robot_id, opposite_robot_state_key)
-        
+
         # Check for unknows
         for object_appearance, conveyor_id, progress in classified_objects_and_progress:
             if object_appearance == "Unknown":
-                if ((conveyor_id == 0 and robot_id == 1 and (progress < 0 or progress > 0.94))
-                    or (conveyor_id == 1 and robot_id == 1 and progress > 0.94)
-                    or progress < 0):
+                if (conveyor_id == 0 and robot_id == 1 and (progress < 0 or progress > 0.94)) or (conveyor_id == 1 and robot_id == 1 and progress > 0.94) or progress < 0:
                     continue
                 print(f"Robot {robot_id}: Unknown Object on conveyor {conveyor_id} with progress {progress}")
 
-        classified_objects_and_progress = [(o,c,p) for o,c,p in classified_objects_and_progress if o != "Unknown"]        
+        classified_objects_and_progress = [(o, c, p) for o, c, p in classified_objects_and_progress if o != "Unknown"]
         print(f"Robot {robot_id} {classified_objects_and_progress}")
 
         return_objects = []
@@ -250,28 +237,24 @@ class VisionModule:
             (image_object_shape, image_object_color), image_object_conveyor_id, image_object_progress = image_object
 
             for virtual_object in virtual_objects:
-                if (virtual_object.shape == image_object_shape and virtual_object.color == image_object_color):
+                if virtual_object.shape == image_object_shape and virtual_object.color == image_object_color:
                     # Check if object is on the correct conveyor
                     if virtual_object.state.id == image_object_conveyor_id:
                         # Push the progress to the conveyor cache
                         status = "Normal"
                         error = virtual_object.progress - image_object_progress
-                        if (error < -self.vision_progress_buffer):
+                        if error < -self.vision_progress_buffer:
                             status = "Early"
-                            return_object = SimpleNamespace(
-                                color=virtual_object.color, 
-                                shape=virtual_object.shape, 
-                                error_correction = -error)
+                            return_object = SimpleNamespace(color=virtual_object.color, shape=virtual_object.shape, error_correction=-error)
                             return_objects.append(return_object)
-                        elif (error > self.vision_progress_buffer):
+                            print(f"DT progress: {virtual_object.progress}, Image progress: {image_object_progress}, Error: {error}")
+                        elif error > self.vision_progress_buffer:
                             status = "Late"
-                            return_object = SimpleNamespace(
-                                color=virtual_object.color, 
-                                shape=virtual_object.shape, 
-                                error_correction = -error)
+                            return_object = SimpleNamespace(color=virtual_object.color, shape=virtual_object.shape, error_correction=-error)
                             return_objects.append(return_object)
+                            print(f"DT progress: {virtual_object.progress}, Image progress: {image_object_progress}, Error: {error}")
 
-                        conveyor_cache_entry = SimpleNamespace(conveyor_id=image_object_conveyor_id, args = [virtual_object.shape, virtual_object.color, image_object_progress, status])
+                        conveyor_cache_entry = SimpleNamespace(conveyor_id=image_object_conveyor_id, args=[virtual_object.shape, virtual_object.color, image_object_progress, status])
                         conveyor_cache_entries.append(conveyor_cache_entry)
 
                     # Objects was not on the correct conveyor
@@ -285,10 +268,9 @@ class VisionModule:
             # Object was not expected in the image
             else:
                 pass
-        
+
         return (return_objects, conveyor_cache_entries)
-    
-    
+
 
 # Progress cutoff values
 
@@ -346,4 +328,3 @@ class VisionModule:
 
 #                 print(predictions)
 #                 print(f"{correct_classifiaction} {correct_distance}")
-

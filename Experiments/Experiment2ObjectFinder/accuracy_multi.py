@@ -1,4 +1,5 @@
 import os
+import time
 
 from ultralytics import YOLO
 
@@ -11,9 +12,17 @@ model = YOLO(final_model_path)
 
 
 data_yaml_path = os.path.join(base_path, dataset, "data_multi.yaml")
+
+start_time = time.perf_counter()
 # 2. Run Validation to get predictions on the test set
 # we use save_json=True or simply iterate through results
 results = model.val(data=data_yaml_path, split="test", plots=True)
+
+end_time = time.perf_counter()
+
+total_duration = end_time - start_time
+num_images = 30  # Number of images processed
+avg_time_per_image = total_duration / num_images
 
 # 3. Access the Confusion Matrix correctly
 # We use the validator's internal confusion matrix which is populated during val
@@ -44,8 +53,15 @@ if total_objects_found > 0:
 else:
     accuracy = 0
 
+map50_95 = results.results_dict["metrics/mAP50-95(B)"]
+map50 = results.results_dict["metrics/mAP50(B)"]
+
+
 print("\n" + "=" * 30)
 print(f"Total Objects Detected:  {int(total_objects_found)}")
 print(f"Correctly Classified:   {int(correct_classifications)}")
 print(f"Classification Accuracy: {accuracy:.4f}")
+print(f"Avg Time per Image:      {avg_time_per_image:.4f} seconds")
+print(f"mAP50-95:                {map50_95:.4f}")
+print(f"mAP50:                   {map50:.4f}")
 print("=" * 30)
