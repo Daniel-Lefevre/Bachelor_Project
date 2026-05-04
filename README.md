@@ -12,6 +12,9 @@ https://docs.google.com/document/d/1T-WWYX9KqtfHGER0PO_sFUBXoYqzswZ6ThZjRrAKvsA/
 ### **Drawings**
 https://drive.google.com/file/d/1xx9qzL80M35pHLFEnVWRHDTKTx0Pse91/view?usp=sharing
 
+### **Anomalies**
+https://docs.google.com/spreadsheets/d/1-2GoGnaEigZ-x1MziMF2Ia3y4VUbnZ09kIiUq5JIvcc/edit?usp=sharing
+
 
 
 ### **How to Connect To The Robots**
