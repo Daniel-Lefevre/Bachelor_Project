@@ -8,7 +8,7 @@ class ObjectState(NamedTuple):
     origin: str
     id: int
     destination: Optional[str] = None
-    time: Optional[float] = None
+    time: Optional[float] = float("inf")
 
 
 ObjectStates = {
@@ -16,14 +16,10 @@ ObjectStates = {
     "Storage_1": ObjectState(key="Storage_1", origin="Storage", id=1),
     "Conveyor_0": ObjectState(key="Conveyor_0", origin="Conveyor", id=0, time=configuration["Observed_times"]["Conveyor_0"]),
     "Conveyor_1": ObjectState(key="Conveyor_1", origin="Conveyor", id=1, time=configuration["Observed_times"]["Conveyor_1"]),
-    "Robot_0_Storage_to_Conveyor": ObjectState(key="Robot_0_Storage_to_Conveyor", origin="Storage", id=0, destination="Conveyor"),
-    "Robot_1_Storage_to_Conveyor": ObjectState(key="Robot_1_Storage_to_Conveyor", origin="Storage", id=1, destination="Conveyor"),
-    "Robot_0_Conveyor_to_Conveyor": ObjectState(key="Robot_0_Conveyor_to_Conveyor", origin="Conveyor", destination="Conveyor", id=0),
-    "Robot_1_Conveyor_to_Conveyor": ObjectState(key="Robot_1_Conveyor_to_Conveyor", origin="Conveyor", destination="Conveyor", id=1),
-    "Robot_0_Conveyor_to_Storage": ObjectState(key="Robot_0_Conveyor_to_Storage", origin="Conveyor", destination="Storage", id=0),
-    "Robot_1_Conveyor_to_Storage": ObjectState(key="Robot_1_Conveyor_to_Storage", origin="Conveyor", destination="Storage", id=1),
     "IR_0": ObjectState(key="IR_0", origin="IR", id=0),
     "IR_1": ObjectState(key="IR_1", origin="IR", id=1),
+    "Robot_0": ObjectState(key="Robot_0", origin="Robot", id=0),
+    "Robot_1": ObjectState(key="Robot_1", origin="Robot", id=1),
 }
 
 
@@ -36,16 +32,21 @@ class RobotStates(NamedTuple):
 
 def create_robot_states(id: int) -> dict:
     return {
-        "Observation": RobotStates(key="Observation", origin="Observation", time=float("inf")),
-        "Observation_to_Storage": RobotStates(key="Observation_to_Storage", origin="Observation", destination="Storage", time=configuration["Observed_times"][f"Robot_{id}_Observation_to_Storage"]),
-        "Observation_to_Conveyor": RobotStates(
-            key="Observation_to_Conveyor", origin="Observation", destination="Conveyor", time=configuration["Observed_times"][f"Robot_{id}_Observation_to_Conveyor"]
+        "Setup": RobotStates(key="Setup", origin="Setup", time=float("inf")),
+        "Observation": RobotStates(key="Observation", origin="Observation", time=float("inf"), destination="Observation"),
+        "Observation_to_Pickup_Storage": RobotStates(key="Observation_to_Pickup_Storage", origin="Observation", destination="Pickup_Storage", time=configuration["Observed_times"][f"Robot_{id}_Observation_to_Pickup_Storage"]),
+        "Observation_to_Workspace_Observation": RobotStates(
+            key="Observation_to_Workspace_Observation", origin="Observation", destination="Workspace_Observation", time=configuration["Observed_times"][f"Robot_{id}_Observation_to_Workspace_Observation"]
         ),
-        "Storage_to_Conveyor": RobotStates(key="Storage_to_Conveyor", origin="Storage", destination="Conveyor", time=configuration["Observed_times"][f"Robot_{id}_Storage_to_Conveyor"]),
-        "Storage_to_Observation": RobotStates(key="Storage_to_Observation", origin="Storage", destination="Observation", time=configuration["Observed_times"][f"Robot_{id}_Storage_to_Observation"]),
-        "Conveyor_to_Conveyor": RobotStates(key="Conveyor_to_Conveyor", origin="Conveyor", destination="Conveyor", time=configuration["Observed_times"][f"Robot_{id}_Conveyor_to_Conveyor"]),
-        "Conveyor_to_Storage": RobotStates(key="Conveyor_to_Storage", origin="Conveyor", destination="Storage", time=configuration["Observed_times"][f"Robot_{id}_Conveyor_to_Storage"]),
-        "Conveyor_to_Observation": RobotStates(
-            key="Conveyor_to_Observation", origin="Conveyor", destination="Observation", time=configuration["Observed_times"][f"Robot_{id}_Conveyor_to_Observation"]
+        "Workspace_Observation_to_Pickup_Conveyor": RobotStates(
+            key="Workspace_Observation_to_Pickup_Conveyor", origin="Workspace_Observation", destination="Pickup_Conveyor", time=configuration["Observed_times"][f"Robot_{id}_Workspace_Observation_to_Pickup_Conveyor"]
         ),
+        "Pickup_Conveyor_to_Observation": RobotStates(key="Pickup_Conveyor_to_Observation", origin="Pickup_Conveyor", destination="Observation", time=configuration["Observed_times"][f"Robot_{id}_Pickup_Conveyor_to_Observation"]),
+        "Observation_to_Standby": RobotStates(key="Observation_to_Standby", origin="Observation", destination="Standby", time=configuration["Observed_times"][f"Robot_{id}_Observation_to_Standby"]),
+        "Observation_to_Place_Storage": RobotStates(key="Observation_to_Place_Storage", origin="Observation", destination="Place_Storage", time=configuration["Observed_times"][f"Robot_{id}_Observation_to_Place_Storage"]),
+        "Standby_to_Place_Conveyor": RobotStates(key="Standby_to_Place_Conveyor", origin="Standby", destination="Place_Conveyor", time=configuration["Observed_times"][f"Robot_{id}_Standby_to_Place_Conveyor"]),
+        "Standby": RobotStates(key="Standby", origin="Standby", destination="Standby", time=float("inf")),
+        "Storage_to_Standby": RobotStates(key="Storage_to_Standby", origin="Pickup_Storage", destination="Standby", time=configuration["Observed_times"][f"Robot_{id}_Storage_to_Standby"]),
+        "Place_Storage_to_Observation": RobotStates(key="Place_Storage_to_Observation", origin="Place_Storage", destination="Observation", time=configuration["Observed_times"][f"Robot_{id}_Place_Storage_to_Observation"]),
+        "Place_Conveyor_to_Observation": RobotStates(key="Place_Conveyor_to_Observation", origin="Place_Conveyor", destination="Observation", time=configuration["Observed_times"][f"Robot_{id}_Place_Conveyor_to_Observation"]),
     }

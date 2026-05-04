@@ -11,3 +11,6 @@ class VirtualConveyor:
 
     def get_info(self) -> bool:
         return self.running
+
+    def print(self):
+        print(f"Conveyor {self.id}: {self.running}")

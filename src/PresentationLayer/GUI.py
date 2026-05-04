@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from PIL import Image, ImageOps
 
-from src.PresentationLayer.animation import Animation
+from src.PresentationLayer.Animation import Animation
 
 
 class GUI:
@@ -9,6 +9,7 @@ class GUI:
         self.system = system
         self.storage_objects = system.get_objects()
 
+        # Load in the images used as symbols for the GUI
         self._load_images()
 
         # Color palette
@@ -29,9 +30,9 @@ class GUI:
         self.labels = ["Storage_0", "In_Transit", "Storage_1"]
 
         # Keep references to stack frames so we can update them later
+        # This is going to show whether an object is in storage 0, storage 1 or in transit
         self.frames = {}
         self.last_state = {}
-
         for col, label in enumerate(self.labels):
             stack = self._create_stack(self.root, label, self.box_color)
             if col == 0:
@@ -42,17 +43,20 @@ class GUI:
                 stack.grid(row=0, column=col + 1, padx=15, pady=15, sticky="nsew")
             self.frames[label] = stack
 
+        # Create the ANimation Canvas
         self.animation = Animation(self.root, self.storage_objects)
 
         # Make the grid cells expand
         grid_configs = [2, 1, 1, 2]
+        row_configs = [51, 49]
         for i in range(4):
             self.root.grid_columnconfigure(i, weight=grid_configs[i])
-
         for i in range(2):
-            self.root.grid_rowconfigure(i, weight=1)
+            self.root.grid_rowconfigure(i, weight=row_configs[i], uniform="row_group")
 
+        # Create the terminal fro anomaly logs
         self._create_anomaly_log()
+        # Create the settings button
         self._create_buttons()
 
         # Start the periodic update loop
@@ -79,18 +83,18 @@ class GUI:
         dt_frame = ctk.CTkFrame(self.root, fg_color=self.box_color, corner_radius=10, width=100, height=100)
         dt_frame.pack_propagate(False)
 
-        ctk.CTkLabel(dt_frame, text="Logs", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 0))
+        # ctk.CTkLabel(dt_frame, text="Settings", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 0))
 
-        time_based_dt_button = ctk.CTkButton(dt_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Time based DT", command=lambda: self.system.stop_system(), width=120, height=35)
-        time_based_dt_button.pack(pady=(10, 10))
+        # time_based_dt_button = ctk.CTkButton(dt_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Time based DT", command=lambda: self.system.stop_system(), width=120, height=35)
+        # time_based_dt_button.pack(pady=(10, 10))
 
-        vision_based_dt_button = ctk.CTkButton(dt_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Vision based DT", command=lambda: self.system.stop_system(), width=120, height=35)
-        vision_based_dt_button.pack(pady=(10, 10))
+        # vision_based_dt_button = ctk.CTkButton(dt_frame, fg_color=self.bg_color, hover_color=self.border_color, text="Vision based DT", command=lambda: self.system.stop_system(), width=120, height=35)
+        # vision_based_dt_button.pack(pady=(10, 10))
 
-        no_dt_button = ctk.CTkButton(dt_frame, fg_color=self.bg_color, hover_color=self.border_color, text="No DT", command=lambda: self.system.stop_system(), width=120, height=35)
-        no_dt_button.pack(pady=(10, 10))
+        # no_dt_button = ctk.CTkButton(dt_frame, fg_color=self.bg_color, hover_color=self.border_color, text="No DT", command=lambda: self.system.stop_system(), width=120, height=35)
+        # no_dt_button.pack(pady=(10, 10))
 
-        ctk.CTkLabel(dt_frame, text="Turn on/off system", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack()
+        ctk.CTkLabel(dt_frame, text="Turn on/off system", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 0))
 
         start_button = ctk.CTkButton(dt_frame, fg_color="green", hover_color=self.border_color, text="Vision based DT", command=lambda: self.system.stop_system(), width=120, height=35)
         start_button.pack(pady=(10, 10))
@@ -100,11 +104,19 @@ class GUI:
         dt_frame.grid(row=1, column=2, sticky="news", padx=15, pady=15)
 
     def _create_anomaly_log(self):
-        log_frame = ctk.CTkFrame(self.root, fg_color=self.box_color, corner_radius=10)
-        # log_frame.pack_propagate(False)
+        # Change CTkFrame to CTkScrollableFrame
+        self.log_frame = ctk.CTkScrollableFrame(
+            self.root,
+            fg_color=self.box_color,
+            corner_radius=10,
+            label_fg_color=self.box_color,
+            label_text="Logs",  # Optional: Adds a built-in header
+            label_font=("Arial", 16, "bold"),
+            label_text_color=self.title_color,
+        )
 
-        ctk.CTkLabel(log_frame, text="Logs", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 10))
-        log_frame.grid(row=1, column=3, sticky="news", padx=15, pady=15)
+        # Grid placement remains the same
+        self.log_frame.grid(row=1, column=3, sticky="news", padx=15, pady=15)
 
     # Function to "color" a black icon to white
     def _make_white(self, img):
@@ -112,10 +124,12 @@ class GUI:
         # Invert the RGB channels (Black becomes White) but keep the original Alpha (transparency)
         return Image.merge("RGBA", (ImageOps.invert(r), ImageOps.invert(g), ImageOps.invert(b), a))
 
+    # Create the stack for on of the storages or in transit
     def _create_stack(self, parent, title, color):
         stack_frame = ctk.CTkFrame(parent, fg_color=color, corner_radius=10)
         stack_frame.pack_propagate(False)
 
+        # Convert the titles from underscore tol space
         new_title = ""
         if title == "In_Transit":
             new_title = "In Transit"
@@ -128,9 +142,11 @@ class GUI:
         stack_frame.object_container = ctk.CTkFrame(stack_frame, fg_color="transparent")
         stack_frame.object_container.pack(fill="both", expand=True, padx=5, pady=(0, 10))
 
+        # This fills in the objects in the stack
         self._populate_stack(stack_frame, title)
         return stack_frame
 
+    # This fills in the objects in the stack
     def _populate_stack(self, stack_frame, title):
         # Clear previous widgets
         for widget in stack_frame.object_container.winfo_children():
@@ -169,6 +185,27 @@ class GUI:
                     )
                     btn.grid(row=0, column=j)
 
+    # Add log message to the log terminal
+    def _add_log(self, anomaly_log_object):
+        time, actor, anomaly_text = anomaly_log_object
+        if actor == 1 or actor == 0:
+            actor = f"Robot {actor}"
+        text = f"[{time}] {actor} - {anomaly_text}"
+
+        # Create the label inside the scrollable frame
+        label = ctk.CTkLabel(self.log_frame, text=text, anchor="w", justify="left", text_color=self.text_color)
+        label.pack(fill="x", padx=10, pady=2)
+
+        # Wrap text based on the width of the scrollable area
+        # Note: Using 30-40 offset to account for the scrollbar width
+        self.log_frame.update_idletasks()
+        label.configure(wraplength=self.log_frame.winfo_width() - 40)
+
+        children = self.log_frame.winfo_children()
+        if len(children) > 100:  # Keep last 100 logs
+            children[0].destroy()
+
+    # Update the storage objects based on information from system
     def _update_storage_objects(self):
         # Refresh object list
         self.storage_objects = self.system.get_objects()
@@ -192,10 +229,14 @@ class GUI:
         # Call again after 500 ms
         self.root.after(500, self._update_storage_objects)
 
-    # Update the ANimation with DT data every 100 ms
+    # Update the Animation with DT data every 100 ms
     def _update_animation(self):
-        self.animation.set_info_dt(self.system.get_info_dt())
+        animation_info, anomaly_log_objects = self.system.get_info_dt()
+        for anomaly_log_object in anomaly_log_objects:
+            self._add_log(anomaly_log_object)
+        self.animation.set_info_dt(animation_info)
         self.root.after(100, self._update_animation)
 
+    # Call move_object function in system when a button has been clicked in
     def _clicked(self, params):
         self.system.move_object(*params)

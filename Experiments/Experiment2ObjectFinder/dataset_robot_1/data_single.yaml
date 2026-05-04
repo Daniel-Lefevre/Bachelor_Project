@@ -1,0 +1,7 @@
+names:
+  0: Object
+nc: 1
+path: c:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment2ObjectFinder\dataset_robot_1
+test: Test_Data/images
+train: Training_Data/images
+val: Validation_Data/images

@@ -7,8 +7,8 @@ from pyniryo import ObjectColor, ObjectShape
 @dataclass
 class StorageObject:
     name: str
-    shape: Literal[ObjectShape.CIRCLE, ObjectShape.SQUARE]
-    color: Literal[ObjectColor.RED, ObjectColor.BLUE, ObjectColor.GREEN]
+    shape: ObjectShape
+    color: ObjectColor
     position: Literal["Storage_1", "In_Transit", "Storage_0"]
 
 
@@ -21,23 +21,23 @@ configuration = {
     "PickFromIRSensorPriority": 1,
     # Overview of equipment in the experimental setup
     "NumberOfRobotArms": 2,
-    "NumberOfConveyors": 2,
     # Dictionary over anomalies
     "Anomalies": {
         1: "Anomaly 1: Object pushed backwards on conveyor belt",
         2: "Anomaly 2: Object pushed forwards on conveyor belt",
-        3: "Anomaly 3: Robot arm fails to pickup object from storage",
-        4: "Anomaly 4: Robot arm fails to pickup object from conveyor",
-        5: "Anomaly 5: Wrong object detected on conveyor belt",
-        6: "Anomaly 6: Unidentified object on conveyor belt",
-        7: "Anomaly 7: Conveyor belt does not move in the right direction with theright speed",
-        8: "Anomaly 8: Object falls off conveyor belt",
-        9: "Anomaly 9: Object falls off robot arm",
-        10: "Anomaly 10: Object isn't released from vacuum",
-        11: "Anomaly 11: Anomaly 11: Storage is full",
-        12: "Anomaly 12: Unidentified object in storage",
-        13: "Anomaly 13: Wrong object in storage",
-        14: "Anomaly 14: Missing object in storage",
+        3: "Anomaly 3: Wrong object detected on conveyor belt",
+        4: "Anomaly 4: Conveyor belt does not move in the right direction with the right speed",
+        5: "Anomaly 5: Object falls off conveyor belt",
+        6: "Anomaly 6: Object Obstructing drop off position on conveyor belt",
+        7: "Anomaly 7: Storage is full",
+        8: "Anomaly 8: Wrong object in storage",
+        9: "Anomaly 9: Missing object in storage",
+        10: "Anomaly 10: Object falls off robot arm",
+        11: "Anomaly 11: Object isn't released from vacuum",
+        12: "Anomaly 12: Robot arm fails to pickup object from storage",
+        13: "Anomaly 13: Robot arm fails to pickup object from conveyor",
+        14: "Anomaly 14: Unknown object on conveyor belt",
+        15: "Anomaly 15: Unknown object in storage",
     },
     # Starting setup of the system
     "StorageObjects": [
@@ -48,29 +48,75 @@ configuration = {
         StorageObject("Blue Circle", ObjectShape.CIRCLE, ObjectColor.BLUE, "Storage_1"),
         StorageObject("Green Circle", ObjectShape.CIRCLE, ObjectColor.GREEN, "Storage_0"),
     ],
+    "StorageOccupancy": [
+        [(ObjectShape.SQUARE, ObjectColor.BLUE), (ObjectShape.CIRCLE, ObjectColor.RED), (ObjectShape.CIRCLE, ObjectColor.GREEN), None],
+        [(ObjectShape.SQUARE, ObjectColor.RED), (ObjectShape.SQUARE, ObjectColor.GREEN), (ObjectShape.CIRCLE, ObjectColor.BLUE), None],
+    ],
     # Camera configurations found using experiments
     "brightness": [[1.24816061, 1.32431245], [1.28829838, 1.42241655]],
     "contrast": [[1.01757065, 1.02363494], [1.02113107, 1.01575003]],
     "saturation": [[1.23197705, 1.35534524], [1.27477756, 1.22645163]],
     # Times for the DT
     "Observed_times": {
-        "Conveyor_0": 9.15,
-        "Conveyor_1": 8.76,
-        "Robot_0_Conveyor_to_Conveyor": 6.07,
-        "Robot_1_Conveyor_to_Conveyor": 6.0,
-        "Robot_0_Observation_to_Conveyor": 4.35,
-        "Robot_1_Observation_to_Conveyor": 4.6,
-        "Robot_0_Storage_to_Conveyor": 7.01,
-        "Robot_1_Storage_to_Conveyor": 7.27,
-        "Robot_0_Conveyor_to_Storage": 7.7,
-        "Robot_1_Conveyor_to_Storage": 7.1,
-        "Robot_0_Observation_to_Storage": 7.93,
-        "Robot_1_Observation_to_Storage": 8.97,
-        "Robot_0_Conveyor_to_Observation": 3.03,
-        "Robot_0_Storage_to_Observation": 5.07,
-        "Robot_1_Conveyor_to_Observation": 4.4,
-        "Robot_1_Storage_to_Observation": 5.0,
+        # "Conveyor_0": 8.26,
+        # "Conveyor_1": 8.26,
+        # "Robot_0_Observation_to_Pickup_Storage": 8.86,
+        # "Robot_1_Observation_to_Pickup_Storage": 9.74,
+        # "Robot_0_Workspace_Observation_to_Pickup_Conveyor": 4.66,
+        # "Robot_1_Workspace_Observation_to_Pickup_Conveyor": 4.51,
+        # "Robot_0_Pickup_Conveyor_to_Observation": 4.16,
+        # "Robot_1_Pickup_Conveyor_to_Observation": 4.14,
+        # "Robot_0_Observation_to_Standby": 2.78,
+        # "Robot_1_Observation_to_Standby": 2.88,
+        # "Robot_0_Observation_to_Place_Storage": 3.35,
+        # "Robot_1_Observation_to_Place_Storage": 3.86,
+        # "Robot_0_Standby_to_Place_Conveyor": 1.87,
+        # "Robot_1_Standby_to_Place_Conveyor": 1.69,
+        # "Robot_0_Storage_to_Standby": 6.6,
+        # "Robot_1_Storage_to_Standby": 6.8,
+        # "Robot_0_Place_Storage_to_Observation": 4.18,
+        # "Robot_1_Place_Storage_to_Observation": 4.43,
+        # "Robot_0_Place_Conveyor_to_Observation": 3.43,
+        # "Robot_1_Place_Conveyor_to_Observation": 3.92,
+        # "Robot_0_Observation_to_Workspace_Observation": 1.73,
+        # "Robot_1_Observation_to_Workspace_Observation": 1.73,
+        "Conveyor_0": 6.5,
+        "Conveyor_1": 6.5,
+        "Robot_0_Observation_to_Pickup_Storage": 8.87,
+        "Robot_1_Observation_to_Pickup_Storage": 9.11,
+        "Robot_0_Workspace_Observation_to_Pickup_Conveyor": 4.13,
+        "Robot_1_Workspace_Observation_to_Pickup_Conveyor": 4.08,
+        "Robot_0_Pickup_Conveyor_to_Observation": 5.88,
+        "Robot_1_Pickup_Conveyor_to_Observation": 5.46,
+        "Robot_0_Observation_to_Standby": 2.53,
+        "Robot_1_Observation_to_Standby": 2.12,
+        "Robot_0_Observation_to_Place_Storage": 3.76,
+        "Robot_1_Observation_to_Place_Storage": 3.43,
+        "Robot_0_Standby_to_Place_Conveyor": 1.64,
+        "Robot_1_Standby_to_Place_Conveyor": 2.78,
+        "Robot_0_Storage_to_Standby": 7.38,
+        "Robot_1_Storage_to_Standby": 7.16,
+        "Robot_0_Place_Storage_to_Observation": 3.34,
+        "Robot_1_Place_Storage_to_Observation": 3.26,
+        "Robot_0_Place_Conveyor_to_Observation": 2.93,
+        "Robot_1_Place_Conveyor_to_Observation": 2.90,
+        "Robot_0_Observation_to_Workspace_Observation": 2.09,
+        "Robot_1_Observation_to_Workspace_Observation": 1.89,
     },
+    "storagePositions": [
+        [
+            [-0.06205056905277242, -0.19256394859795326, 0.057984999202619444, 1.770515246141111, 1.548892970661883, -1.4110397860855048],
+            [0.005508972910148029, -0.19919787963968721, 0.05732826415965928, 2.6028315915415394, 1.558259000508785, -0.6029308938909559],
+            [-0.0673181900989941, -0.25935795259543687, 0.056629867433290425, 2.716193629686612, 1.5455437127533735, -0.7021146089214897],
+            [0.0007075202392178714, -0.2599278711928543, 0.056952659324702594, 2.2527964034233254, 1.5296351721639505, -0.9329650414391197],
+        ],
+        [
+            [-0.00282078630144435, 0.19717361034206676, 0.06299425747143081, -2.539337643624458, 1.5674382910114895, 3.0487939997302145],
+            [-0.07824856778361586, 0.19160351414658516, 0.05385308002668253, -2.3876118714603307, 1.553386806421733, -2.8703027663285465],
+            [-0.007873883105455861, 0.2633992356019009, 0.05557682514481014, 3.100216674723426, 1.4980368823362151, 2.2528459022634792],
+            [-0.0792910869080455, 0.2581088096320052, 0.051502537161709855, -2.2332863270209296, 1.5054596853471967, -2.829187564225824],
+        ],
+    ],
     "positions": [
         # Robot_0's positions
         [
@@ -82,22 +128,7 @@ configuration = {
                 1.4919714064477891,
                 -0.011501923089995283,
             ],  # PlaceConveyor
-            [
-                -0.06454724202416068,
-                -0.25841679055839906,
-                0.07169377341193187,
-                -0.5973192719933085,
-                1.4841716980991895,
-                2.5321741288187907,
-            ],  # PlaceStorage
-            [
-                0.2762497323855258,
-                -0.0758582449018067,
-                0.25877878754192806,
-                -0.3753629275811858,
-                1.502019805732354,
-                -0.41621094014756393,
-            ],  # ObservationPositionConveyor
+            [0.22588446311184643, -0.0008558529969849022, 0.5181733234906416, 0.036411234992297405, 1.1864229848405983, 0.03565316230539174],  # Observation
             [
                 -0.017141437047257388,
                 -0.15184164134413197,
@@ -106,6 +137,22 @@ configuration = {
                 1.492753388202436,
                 -1.5155268392165837,
             ],  # ObservationPositionStorage
+            [
+                0.2028789492464582,
+                0.1698822601182645,
+                0.23624773367036977,
+                0.03513008510678816,
+                1.4919714064477891,
+                -0.011501923089995283,
+            ],  # Standby Position
+            [
+                0.2762497323855258,
+                -0.0758582449018067,
+                0.25877878754192806,
+                -0.3753629275811858,
+                1.502019805732354,
+                -0.41621094014756393,
+            ],  # Conveyor Workspace
         ],
         # Robot_1's positions
         [
@@ -117,22 +164,7 @@ configuration = {
                 1.524596107925453,
                 2.2656189128608912,
             ],  # PlaceConveyor
-            [
-                -0.0017103279953780066,
-                0.2629236782267381,
-                0.07237643418601386,
-                0.6202080849782293,
-                1.5623164426206442,
-                2.26682857594807,
-            ],  # PlaceStorage
-            [
-                0.28652238179577555,
-                -0.07686871280532333,
-                0.2595967526715013,
-                0.13276838676211575,
-                1.4864162505849923,
-                -0.08733655724281332,
-            ],  # ObservationPositionConveyor
+            [0.2058824271247155, 0.0007054255360600889, 0.5307552368864079, -0.028579226480643805, 1.11042505722123, -0.03175794465104596],  # Observation
             [
                 -0.026088641405653677,
                 0.15325372778995128,
@@ -141,6 +173,22 @@ configuration = {
                 1.4558342950810048,
                 1.3648727293344325,
             ],  # ObservationPositionStorage
+            [
+                0.2157542042065579,
+                0.20369258396709879,
+                0.2216293024165304,
+                2.158089291524011,
+                1.524596107925453,
+                2.2656189128608912,
+            ],  # Standby Position
+            [
+                0.28652238179577555,
+                -0.07686871280532333,
+                0.2595967526715013,
+                0.13276838676211575,
+                1.4864162505849923,
+                -0.08733655724281332,
+            ],  # Conveyor Workspace
         ],
     ],
     "Conveyor_workspace_0": [
@@ -246,37 +294,9 @@ configuration = {
         ],  # Point 4
     ],
     "Storage_workspace_1": [
-        [
-            -0.10058191168910334,
-            0.16154865763136206,
-            0.01650482978725408,
-            -1.2499469220381743,
-            1.56305438336274,
-            -0.7345335041950191,
-        ],  # Point 3
-        [
-            0.03718107352065722,
-            0.1618793032131123,
-            0.016595891541987484,
-            -1.4153997530676132,
-            1.5149205178866925,
-            -1.6819281888854605,
-        ],  # Point 2
-        [
-            0.03211398591120434,
-            0.2932694995681843,
-            0.01787590517238276,
-            -2.905693483888061,
-            1.5211577023579788,
-            -2.843704932913777,
-        ],  # Point 1
-        [
-            -0.10069238343294361,
-            0.29318653824249463,
-            0.016166038666620655,
-            -2.357499867376823,
-            1.5162626417225171,
-            -2.070090724804433,
-        ],  # Point 4]
+        [0.017317300935056065, 0.3002124567739622, 0.03511948402282107, 2.6378339691142987, 1.4997496448438217, -2.158278516800187],  # Point 3
+        [0.025728889297184226, 0.1637783519383701, 0.03653153739400475, -2.702986682551672, 1.5025317697712444, -1.4800880927813516],  # Point 2
+        [-0.11050817985167179, 0.156512995812484, 0.03286177904171689, -2.979056901500458, 1.488942137437697, -1.1083414664368054],  # Point 1
+        [-0.1209067926198649, 0.28474806063597224, 0.03176011025672984, 2.5892731970701384, 1.4986216949749003, -1.887249324684688],  # Point 4]
     ],
 }

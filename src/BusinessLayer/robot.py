@@ -1,17 +1,20 @@
 import copy
 import threading
 import time
-from queue import PriorityQueue
 
+import cv2
 import numpy as np
 import paramiko
-from pyniryo import ConveyorDirection, NiryoRobot, ObjectColor, ObjectShape, PinState, PoseObject, cv2, uncompress_image
+from pyniryo import ConveyorDirection, NiryoRobot, ObjectColor, ObjectShape, PinState, PoseObject, uncompress_image
 
 from resources.environment import configuration
+from resources.PriorityQueue import CustomPriorityQueue
+
+np.fromstring = np.frombuffer
 
 
 class RobotArm:
-    def __init__(self, ip: str, positions: list[float], id: int):
+    def __init__(self, ip: str, positions: list[float], id: int, initial_object_positions: list):
         self.ip = ip
         self.robot = NiryoRobot(ip)
         self.ID = id
@@ -19,9 +22,10 @@ class RobotArm:
         self.setup_file = "/home/niryo/catkin_ws/install/release/ned2/setup.bash"
         self.conveyor_workspace = f"Conveyor_workspace_{self.ID}"
         self.storage_workspace = f"Storage_workspace_{self.ID}"
-        self.safe_position = [0.0, 0.0, 0.0, 0.0, -1.57, 0.0]
         self.conveyor_speed = 75
-        self.place_conveyor, self.place_storage, self.observation_pose_conveyor, self.observation_pose_storage = positions
+        self.place_conveyor, self.observation_pose, self.observation_pose_storage, self.standby_position, self.observation_pose_conveyor = positions
+        self.place_storage = configuration["storagePositions"][self.ID]
+        self.occupied_storage = initial_object_positions
         self.conveyor_id = self.robot.set_conveyor()
         self.brightness_level_conveyor = configuration["brightness"][self.ID][0]
         self.contrast_level_conveyor = configuration["contrast"][self.ID][0]
@@ -29,20 +33,27 @@ class RobotArm:
         self.brightness_level_storage = configuration["brightness"][self.ID][1]
         self.contrast_level_storage = configuration["contrast"][self.ID][1]
         self.saturation_level_storage = configuration["saturation"][self.ID][1]
-        self.queue = PriorityQueue()
+        self.queue = CustomPriorityQueue(configuration["NumberOfPriorities"])
         self.object_updates = []
         self.anomaly_updates = []
+        self.latest_image = None
+        self.time_of_last_image = 0
+        self.image_time_interval = 1.0
         self.IR = False
         self.rules = {}
         self.lock = threading.Lock()
         self.mitigation_mode = False
         self.pick_and_place_first_try = True
+        self.ready_to_drop = False
+        self.conveyor_is_running = True
 
     def get_ir(self) -> bool:
         return self.IR
 
     def _start_conveyorbelt(self) -> None:
+        self.conveyor_is_running = True
         self.robot.run_conveyor(self.conveyor_id, speed=self.conveyor_speed, direction=ConveyorDirection.BACKWARD)
+        # self.robot.run_conveyor(self.conveyor_id, speed=0, direction=ConveyorDirection.BACKWARD)
 
     def set_mitigation_mode(self, value) -> None:
         self.mitigation_mode = value
@@ -57,6 +68,15 @@ class RobotArm:
         for rule_key in rules:
             self.rules[rule_key] = rules[rule_key]
 
+    def remove_object_from_storage(self, shape: ObjectShape, color: ObjectColor) -> None:
+        print(f"storage: {self.occupied_storage}")
+        for i in range(len(self.occupied_storage)):
+            if self.occupied_storage[i] is not None:
+                if self.occupied_storage[i][0] == shape and self.occupied_storage[i][1] == color:
+                    self.occupied_storage[i] = None
+                    print(self.occupied_storage)
+                    return
+
     def get_object_updates(self) -> list[tuple[ObjectShape, ObjectColor, str]]:
         object_updates_copy = copy.deepcopy(self.object_updates)
         self.object_updates.clear()
@@ -66,6 +86,14 @@ class RobotArm:
         anomaly_updates_copy = copy.deepcopy(self.anomaly_updates)
         self.anomaly_updates.clear()
         return anomaly_updates_copy
+
+    def drop_object(self) -> None:
+        self.ready_to_drop = True
+
+    def get_latest_image(self) -> np.ndarray | None:
+        image = copy.deepcopy(self.latest_image)
+        self.latest_image = None
+        return image
 
     def _enable_camera(self) -> bool:
         output = ""
@@ -89,23 +117,23 @@ class RobotArm:
 
         return "average rate" in output
 
-    def take_image(self) -> None:
-        with self.lock:
-            # Take in image
+    def _take_image(self) -> None:
+        current_time = time.time()
+        if current_time - self.time_of_last_image > self.image_time_interval:
+            print(f"Time since last image: {current_time - self.time_of_last_image}")
             img_compressed = self.robot.get_img_compressed()
-            if img_compressed:
-                # Uncompress and save the image
-                img = uncompress_image(img_compressed)
-                cv2.imwrite("final_result.jpg", img)
-                print("Saved image")
-            else:
-                print("Could not take image")
+            img_bgr = uncompress_image(img_compressed)
+            image_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+
+            self.time_of_last_image = current_time
+            self.latest_image = image_rgb
 
     def _stop_conveyorbelt(self) -> None:
+        self.conveyor_is_running = False
         self.robot.stop_conveyor(self.conveyor_id)
 
-    def _move_to_safe_position(self) -> None:
-        self.robot.move_joints(self.safe_position)
+    def _move_to_standby_position(self) -> None:
+        self.robot.move_pose(self.standby_position)
 
     def _inverse_workspacepose(self, workspace_name: str, target_pose: PoseObject) -> PoseObject:
         workspace = np.array(configuration[workspace_name])
@@ -114,8 +142,12 @@ class RobotArm:
         difference = workspace_center - pose
         new_pose = workspace_center + difference
         new_pose[2] = target_pose.z
+        new_pose[3] = target_pose.roll
+        new_pose[4] = target_pose.pitch
+        new_pose[5] = target_pose.yaw
         return PoseObject(*new_pose)
 
+    #
     def _grasp_with_tool(self) -> None:
         self.robot._grasp_with_tool()
 
@@ -126,21 +158,21 @@ class RobotArm:
 
         if workspace == self.storage_workspace:
             if self.ID == 0:
-                target_pose.z += 0.014
+                target_pose.z += 0.016
                 target_pose.x += 0
                 target_pose.y -= 0.011
             elif self.ID == 1:
-                target_pose.x += 0.006
+                target_pose.x += 0.01
                 target_pose.y += 0
-                target_pose.z += 0.013
+                target_pose.z -= 0.007
         elif workspace == self.conveyor_workspace:
             if self.ID == 0:
                 target_pose.x += 0.0115
-                target_pose.y -= 0.0195
+                target_pose.y -= 0.0095
                 target_pose.z += 0.005
             elif self.ID == 1:
-                target_pose.x += 0.008
-                target_pose.y += 0.009
+                target_pose.x += 0.018
+                target_pose.y += 0.018
                 target_pose.z += 0.005
         return target_pose
 
@@ -157,29 +189,38 @@ class RobotArm:
 
         if not obj_found:
             if destination is not None:  # Object is taken from storage
-                print(f"{configuration['Anomalies'][14]}")
-                self.anomaly_updates.append(("Stop System",))
+                self.anomaly_updates.append(("Anomaly 9",))
 
         else:
-            print(f"Object found: {shape_ret}, {color_ret}")
+            # print(f"++++++++++Object found: {shape_ret}, {color_ret}++++++++++++")
             final_destination = False
             if destination is None:
                 area = self.rules.get((shape_ret, color_ret))
                 if area is None:
-                    # The wrong object is on the conveyor belt, cast anomaly 5
-                    print(f"{configuration['Anomalies'][5]}")
+                    # The wrong object is on the conveyor belt, cast anomaly 3
                     self.set_mitigation_mode(True)
-                    self.anomaly_updates.append(("Anomaly 5", (self.ID, shape_ret, color_ret)))
+                    self.anomaly_updates.append(("Anomaly 3", (self.ID, shape_ret, color_ret)))
                     return
 
                 if area == "Storage":
-                    destination = self.place_storage
-                    final_destination = True
+                    for i in range(len(self.occupied_storage)):
+                        if self.occupied_storage[i] is None:
+                            destination = self.place_storage[i]
+                            print(i, destination)
+                            final_destination = True
+                            self.occupied_storage[i] = (shape_ret, color_ret)
+                            break
+                        elif i == len(self.occupied_storage) - 1:
+                            self.set_mitigation_mode(True)
+                            self.anomaly_updates.append(("Anomaly 7", (self.ID, shape_ret, color_ret)))
+                            return
                 elif area == "Conveyor":
                     destination = self.place_conveyor
                 else:
                     print(f"Unknown area, {area}")
                     return
+            else:
+                self.remove_object_from_storage(shape, color)
 
             x, y, object_yaw = object_pose
 
@@ -192,23 +233,26 @@ class RobotArm:
 
     def _check_ir(self) -> bool:
         all_pins = self.robot.get_digital_io_state()
-        return all_pins[4].state == PinState.LOW
+        self.IR = all_pins[4].state == PinState.LOW
+        return self.IR
 
     def loop(self) -> None:
         if self.mitigation_mode:
             return
         with self.lock:
             if self.queue.empty():
-                self._start_conveyorbelt()
-                if self._check_ir():
-                    self.IR = True
-                    self.add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
+                if self.latest_image is None:
+                    self._take_image()
+                if not self._check_ir():
+                    if not self.conveyor_is_running:
+                        self._start_conveyorbelt()
                 else:
-                    self.IR = False
+                    self.add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
             else:
+                print("SOmething in queue")
                 self._stop_conveyorbelt()
                 time.sleep(0.5)
-                _, (workarea, shape, color) = self.queue.get()
+                workarea, shape, color = self.queue.get()
                 self.object_updates.append((shape, color, "In_Transit"))
 
                 if workarea == "Conveyor":
@@ -264,8 +308,7 @@ class RobotArm:
 
         # Move to safe position
         print("Moving to safe position")
-        self._move_to_safe_position()
-        self._move_to_observation_position_conveyor()
+        self._move_to_observation_position()
 
         # Save the workspace defined in environment
         if self.conveyor_workspace not in self.robot.get_workspace_list():
@@ -274,35 +317,58 @@ class RobotArm:
         if self.storage_workspace not in self.robot.get_workspace_list():
             self.robot.save_workspace_from_robot_poses(self.storage_workspace, *configuration[self.storage_workspace])
 
-    def _move_to_observation_position_conveyor(self) -> None:
-        self.robot.move_pose(*self.observation_pose_conveyor)
-        self._set_camera_settings("Conveyor")
+    def _move_to_observation_position(self) -> None:
+        self.robot.move_pose(*self.observation_pose)
+        self._take_image()
 
     def _move_to_observation_position_storage(self) -> None:
         self.robot.move_pose(*self.observation_pose_storage)
         self._set_camera_settings("Storage")
 
-    def _place_and_release(self, destination: list[float] | None) -> None:
+    def _move_to_observation_position_conveyor(self) -> None:
+        self.robot.move_pose(*self.observation_pose_conveyor)
+        self._set_camera_settings("Conveyor")
+
+    def _place_and_release(self, destination: list[float]) -> None:
+        if destination == self.place_conveyor:
+            self._move_to_standby_position()
+            start_time = time.time()
+
+            while not self.ready_to_drop:
+                if self._check_ir():
+                    self._stop_conveyorbelt()
+                elif time.time() - start_time > 1:
+                    self._start_conveyorbelt()
+
+                time.sleep(0.1)
+
+            self._stop_conveyorbelt()
+            self.ready_to_drop = False
+
         self.robot.move_pose(*destination)
         self._release_with_tool()
 
-    def _pick_and_place(self, destination: list[float] | None, final_destination: bool, shape: ObjectShape, color: ObjectColor, workspace: str) -> None:
-        self._move_to_safe_position()
+    def _pick_and_place(self, destination: list[float], final_destination: bool, shape: ObjectShape, color: ObjectColor, workspace: str) -> None:
+        if workspace == self.conveyor_workspace:
+            self._move_to_observation_position_conveyor()
 
         if self._check_ir():
             if self.pick_and_place_first_try:
                 self.pick_and_place_first_try = False
-                # Robot arm has failed to pickup object from the conveyor, cast anomaly 4
-                print(f"{configuration['Anomalies'][4]}")
+                # Robot arm has failed to pickup object from the conveyor, cast anomaly 13
+                self.anomaly_updates.append(("Anomaly 13", (self.ID, shape, color)))
+                self.remove_object_from_storage(shape, color)
                 self._release_with_tool()
                 self._find_and_move_object(workspace, shape, color, None)
                 return
             else:
-                print(f"Mitigation for {configuration['Anomalies'][4]} failed. Human intervention required")
-                self.anomaly_updates.append(("Stop System",))
+                self.remove_object_from_storage(shape, color)
+                self.anomaly_updates.append(("Anomaly 13 Mitigation failed",))
                 return
 
-        if workspace == "Conveyor":
+        self._move_to_observation_position()
+
+        if workspace == self.conveyor_workspace:
             self.rules.pop((shape, color), None)
 
         self.pick_and_place_first_try = True
@@ -310,8 +376,7 @@ class RobotArm:
         if final_destination:
             self.object_updates.append((shape, color, f"Storage_{self.ID}"))
 
-        self._move_to_safe_position()
-        self._move_to_observation_position_conveyor()
+        self._move_to_observation_position()
 
     def disconnect(self) -> None:
         self._stop_conveyorbelt()
