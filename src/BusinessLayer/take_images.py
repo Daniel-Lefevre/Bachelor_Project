@@ -7,9 +7,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 
 import cv2
 import keyboard
+import numpy as np
 import paramiko
 from pyniryo import NiryoRobot, uncompress_image
-import numpy as np
+
 np.fromstring = np.frombuffer
 
 from resources.environment import configuration
@@ -28,7 +29,6 @@ def take_and_store_image(robot_index, label, robots, filename):
         # Combine base directory, dynamic folder, and filename
         # full_path = os.path.join(base_dir, dynamic_folder, filename)
         full_path = os.path.join(base_dir, filename)
-        
 
         # Save the image
         cv2.imwrite(full_path, img)
@@ -58,6 +58,7 @@ place_conveyor_1, observation_1, observation_pose_storage_1, standby_position_1,
 
 robot_0.move_pose(*[0.21679835888827478, -0.0009334077005903836, 0.5210842275039052, 0.026142281148953034, 1.1174330757740905, 0.023417128431200133])
 robot_1.move_pose(*[0.2097776207016574, 0.0007156205321674444, 0.5231374107927002, 0.02509733772552016, 1.0975549310268047, 0.02992753529709694])
+
 
 def _enable_camera(ip: str) -> bool:
     output = ""

@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING
 from pyniryo import ObjectColor, ObjectShape
 
 from resources.environment import configuration
+from src.BusinessLayer.DT.States import ObjectStates
 from src.BusinessLayer.DT.virtual_object import VirtualObject
 from src.BusinessLayer.DT.virtual_robot import VirtualRobot
-from src.BusinessLayer.DT.VisionBasedDT.conveyor_cache import ConveyorCache
 
 if TYPE_CHECKING:
     from resources.environment import StorageObject
@@ -24,7 +24,7 @@ class VisionBasedDT:
         self.virtual_robots = [VirtualRobot(id, self.step_size) for id in range(configuration["NumberOfRobotArms"])]
         self.robots_dropping_objects = []
         self.anomaly_log_messages = []
-        self.conveyor_caches = [ConveyorCache(self.step_size) for id in range(configuration["NumberOfRobotArms"])]
+        self.last_ir_readings = (False, False)
 
     #
     #
@@ -47,13 +47,6 @@ class VisionBasedDT:
 
         return False
 
-    def _check_virtual_objects_at_ir_sensor(self, conveyor_id: int) -> bool:
-        for virt_obj in self.virtual_objects:
-            if virt_obj.get_state().key == f"IR_{conveyor_id}":
-                return True
-
-        return False
-
     #
     #
     # Public function
@@ -63,56 +56,86 @@ class VisionBasedDT:
     def get_state_snapshot(self) -> SimpleNamespace:
         objects = []
         for object in self.virtual_objects:
-            objectInfo = SimpleNamespace(shape=object.shape, color=object.color, state=object.get_state(), progress=object.get_progress())
-            objects.append(objectInfo)
+            object_info = SimpleNamespace(
+                shape=object.shape,
+                color=object.color,
+                state=object.get_state(),
+                progress=object.get_progress(),
+                has_been_observed_on_conveyor=object.has_been_observed_on_conveyor,
+            )
+            objects.append(object_info)
 
         robots = []
         for robot in self.virtual_robots:
-            robotInfo = SimpleNamespace(robot_id=robot.id, state=robot.state)
-            robots.append(robotInfo)
+            robot_info = SimpleNamespace(robot_id=robot.id, state=robot.state)
+            robots.append(robot_info)
 
         info = SimpleNamespace(objects=objects, robots=robots)
 
         return info
 
-    def step(self) -> None:
-        # Update the conveyor cache
-        # print("Caches:")
-        # for conveyor_id, conveyor_cache in enumerate(self.conveyor_caches):
-        #     print(conveyor_cache.step(self.virtual_robots[conveyor_id].get_conveyor_info))
-        # print("--------------")
+    def step(self, latest_ir_readings) -> None:
+        # Check if something has arrived at ir
+        for robot_id in range(len(self.virtual_robots)):
+            if latest_ir_readings[robot_id] and not self.last_ir_readings[robot_id]:
+                object_to_add = SimpleNamespace(state=SimpleNamespace(origin="IR"))
+                self.virtual_robots[robot_id].add_to_queue(configuration["PickFromIRSensorPriority"], object_to_add)
 
         # If an event has occured since last step
-        leaving_conveyor = None
         while not self.events.empty():
             event_type, event_param = self.events.get()
             if event_type == "Pick Up":
                 robot_id = int(event_param.state.id)
                 self.virtual_robots[robot_id].add_to_queue(configuration["PickFromStoragePriority"], self._find_virtual_object(event_param.shape, event_param.color))
-            elif event_type == "IR":
-                conveyor_id = event_param
-                furthest_object = self._get_object_furthest_on_conveyor(conveyor_id)
-                if furthest_object is not None:
-                    leaving_conveyor = (furthest_object.shape, furthest_object.color, conveyor_id)
 
             elif event_type == "Setup done":
                 for robot in self.virtual_robots:
                     robot.exit_setup()
 
+            elif event_type == "Object_seen_at_IR":
+                shape, color, robot_id = event_param
+                for virtual_object in self.virtual_objects:
+                    if virtual_object.shape == shape and virtual_object.color == color:
+                        virtual_object.set_ir_hit_progress(robot_id)
+                        virtual_object.set_state(f"IR_{robot_id}")
+
+                self.virtual_robots[robot_id].set_working_object(self._find_virtual_object(shape, color))
+
             elif event_type == "Update_DT":
-                return_objects, conveyor_cache_entries = event_param
-                for conveyor_cache_entry in conveyor_cache_entries:
-                    self.conveyor_caches[conveyor_cache_entry.conveyor_id].add_to_cache(*conveyor_cache_entry.args)
+                return_objects = event_param
 
                 # Update all all the virtual objects in the DT based on the feedback from the image taken in vision module
                 for return_object in return_objects:
                     for virtual_object in self.virtual_objects:
                         # Find the correct virtual object and check its state is conveyor
-                        if return_object.color == virtual_object.color and return_object.shape == virtual_object.shape and virtual_object.state.origin == "Conveyor":
-                            # Update the virtual object
-                            print(return_object.error_correction)
-                            virtual_object.set_progress(virtual_object.get_progress() + return_object.error_correction)
-                            break
+                        if return_object.color == virtual_object.color and return_object.shape == virtual_object.shape:
+                            # Check of the return object is on the conveyor
+                            if return_object.state.origin == "Conveyor":
+                                for update_category in return_object.updates:
+                                    if update_category == "error_correction":
+                                        # Update the virtual object
+                                        error_correction = return_object.updates[update_category]
+                                        virtual_object.set_progress(virtual_object.get_progress() + error_correction)
+                                        if error_correction > 0:
+                                            # Pushed backwards
+                                            self.anomaly_log_messages.append((f"Conveyor {virtual_object.get_state().id}", "Either anomaly 1 or 4 has occured"))
+
+                                        else:
+                                            # Pushed forwards
+                                            self.anomaly_log_messages.append((f"Conveyor {virtual_object.get_state().id}", "Either anomaly 2 or 4 has occured"))
+
+                            elif return_object.state.origin == "Storage":
+                                for update_category in return_object.updates:
+                                    if update_category == "Updated_State":
+                                        origin = {return_object[update_category].origin}
+                                        storage_id = {return_object[update_category].id}
+                                        state_key = f"{origin}_{storage_id}"
+
+                                        virtual_object.state = ObjectStates[state_key]
+
+                                        self.anomaly_log_messages.append((f"Storage {robot_id}", configuration["Anomalies"][8]))
+
+                                        # MITIGATION PLAN
 
             elif event_type == "Anomaly 13":
                 robot_id, shape, color = event_param
@@ -135,7 +158,6 @@ class VisionBasedDT:
                 for virt_obj in self.virtual_objects:
                     if virt_obj.shape == shape and virt_obj.color == color:
                         virt_obj.handle_anomaly("Anomaly 3", robot_id_arrival)
-                        self.virtual_robots[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], virt_obj)
 
             elif event_type == "Anomaly 7":
                 robot_id, shape, color = event_param
@@ -144,7 +166,7 @@ class VisionBasedDT:
                 self.virtual_robots[robot_id].handle_anomaly(event_type)
 
             elif event_type == "Anomaly 9":
-                robot_id = event_param
+                robot_id, shape, color = event_param
                 self.anomaly_log_messages.append((f"Robot {robot_id}", configuration["Anomalies"][9]))
                 print(configuration["Anomalies"][9])
 
@@ -160,13 +182,19 @@ class VisionBasedDT:
             conveyor_id = int(not robot_id)
             object_at_drop_off = self._check_virtual_objects_drop_off_state(conveyor_id)
 
-            object_at_ir = self._check_virtual_objects_at_ir_sensor(robot_id)
+            object_at_ir = latest_ir_readings[robot_id]
             return_obj = virtual_robot.step(object_at_drop_off, object_at_ir)
             # print(f"Robot {robot_id} state: {virtual_robot.state.key}")
             if return_obj is None:
                 return
 
-            working_object, picked_up, placed_position, dropping_object = return_obj
+            working_object, picked_up, placed_position, dropping_object, conveyor_turn_on = return_obj
+
+            if conveyor_turn_on:
+                for virtual_object in self.virtual_objects:
+                    if virtual_object.state.origin == "Conveyor" and virtual_object.state.id == robot_id:
+                        virtual_object.set_progress(virtual_object.get_progress() - 0.05)
+
             if dropping_object:
                 self.robots_dropping_objects.append(robot_id)
             if picked_up or placed_position is not None:
@@ -186,18 +214,13 @@ class VisionBasedDT:
             ID = virtual_obj.state.id
             conveyor_running = self.virtual_robots[ID].get_conveyor_info()
 
-            conveyor_id_to_be_left = None
-            if leaving_conveyor is not None and leaving_conveyor[0] == virtual_obj.shape and leaving_conveyor[1] == virtual_obj.color:
-                conveyor_id_to_be_left = leaving_conveyor[2]
+            virtual_obj.step(picked_up, placed_position, conveyor_running)
 
-            virtual_obj.step(picked_up, placed_position, conveyor_running, conveyor_id_to_be_left)
             # if virtual_obj.color == ObjectColor.RED and virtual_obj.shape == ObjectShape.CIRCLE:
             # print(f"RED Circle state: {virtual_obj.state.key}")
             # Check if virtual object has reached in IR sensor
 
-            if virtual_obj.get_ir_state():
-                self.virtual_robots[ID].add_to_queue(configuration["PickFromIRSensorPriority"], virtual_obj)
-                virtual_obj.set_ir_state(False)
+        self.last_ir_readings = latest_ir_readings
 
     def _get_object_furthest_on_conveyor(self, conveyor_id: int) -> None | VirtualObject:
         current_furthest_object = None

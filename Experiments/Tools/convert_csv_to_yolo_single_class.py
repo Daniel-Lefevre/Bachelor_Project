@@ -4,7 +4,7 @@ import shutil  # Added to help delete old folders
 import pandas as pd
 
 
-def convert_csv_to_yolo(csv_file, output_folder="single_class_labels"):
+def convert_csv_to_yolo(csv_file, output_folder="single_labels"):
     # CLEANUP: Delete the folder if it exists so old files like '1.txt' disappear
     if os.path.exists(output_folder):
         shutil.rmtree(output_folder)
@@ -37,6 +37,6 @@ def convert_csv_to_yolo(csv_file, output_folder="single_class_labels"):
 
 # 2. Run the script
 script_dir = os.path.dirname(os.path.abspath(__file__))
-target_file = os.path.join(script_dir, "labels_my-project-name_2026-03-20-01-59-49.csv")
+target_file = os.path.join(script_dir, "labels_my-project-name_2026-05-11-11-13-58.csv")
 
 convert_csv_to_yolo(target_file)

@@ -16,8 +16,9 @@ configuration = {
     # IP's of the niryo ned2 robots
     "ips": ["169.254.200.200", "169.254.200.201"],
     # Order of execution for the robot arms
-    "NumberOfPriorities": 2,
-    "PickFromStoragePriority": 2,
+    "NumberOfPriorities": 3,
+    "PickFromStoragePriority": 3,
+    "Anomaly8Priority": 2,
     "PickFromIRSensorPriority": 1,
     # Overview of equipment in the experimental setup
     "NumberOfRobotArms": 2,
@@ -58,14 +59,15 @@ configuration = {
     "saturation": [[1.23197705, 1.35534524], [1.27477756, 1.22645163]],
     # Times for the DT
     "Observed_times": {
+        # TIME BASED DT TIMES
         # "Conveyor_0": 8.26,
         # "Conveyor_1": 8.26,
         # "Robot_0_Observation_to_Pickup_Storage": 8.86,
         # "Robot_1_Observation_to_Pickup_Storage": 9.74,
         # "Robot_0_Workspace_Observation_to_Pickup_Conveyor": 4.66,
         # "Robot_1_Workspace_Observation_to_Pickup_Conveyor": 4.51,
-        # "Robot_0_Pickup_Conveyor_to_Observation": 4.16,
-        # "Robot_1_Pickup_Conveyor_to_Observation": 4.14,
+        # "Robot_0_Pickup_Conveyor_to_Observation": 5.16,
+        # "Robot_1_Pickup_Conveyor_to_Observation": 5.14,
         # "Robot_0_Observation_to_Standby": 2.78,
         # "Robot_1_Observation_to_Standby": 2.88,
         # "Robot_0_Observation_to_Place_Storage": 3.35,
@@ -74,34 +76,35 @@ configuration = {
         # "Robot_1_Standby_to_Place_Conveyor": 1.69,
         # "Robot_0_Storage_to_Standby": 6.6,
         # "Robot_1_Storage_to_Standby": 6.8,
-        # "Robot_0_Place_Storage_to_Observation": 4.18,
-        # "Robot_1_Place_Storage_to_Observation": 4.43,
-        # "Robot_0_Place_Conveyor_to_Observation": 3.43,
-        # "Robot_1_Place_Conveyor_to_Observation": 3.92,
+        # "Robot_0_Place_Storage_to_Observation": 5.18,
+        # "Robot_1_Place_Storage_to_Observation": 5.43,
+        # "Robot_0_Place_Conveyor_to_Observation": 4.43,
+        # "Robot_1_Place_Conveyor_to_Observation": 4.92,
         # "Robot_0_Observation_to_Workspace_Observation": 1.73,
         # "Robot_1_Observation_to_Workspace_Observation": 1.73,
-        "Conveyor_0": 6.5,
-        "Conveyor_1": 6.5,
+        # VISION BASED DT TIMES
+        "Conveyor_0": 8.5,
+        "Conveyor_1": 8.5,
         "Robot_0_Observation_to_Pickup_Storage": 8.87,
-        "Robot_1_Observation_to_Pickup_Storage": 9.11,
+        "Robot_1_Observation_to_Pickup_Storage": 8.81,
         "Robot_0_Workspace_Observation_to_Pickup_Conveyor": 4.13,
-        "Robot_1_Workspace_Observation_to_Pickup_Conveyor": 4.08,
-        "Robot_0_Pickup_Conveyor_to_Observation": 5.88,
-        "Robot_1_Pickup_Conveyor_to_Observation": 5.46,
+        "Robot_1_Workspace_Observation_to_Pickup_Conveyor": 4.28,
+        "Robot_0_Pickup_Conveyor_to_Observation": 6.38,
+        "Robot_1_Pickup_Conveyor_to_Observation": 6.26,
         "Robot_0_Observation_to_Standby": 2.53,
-        "Robot_1_Observation_to_Standby": 2.12,
+        "Robot_1_Observation_to_Standby": 1.92,
         "Robot_0_Observation_to_Place_Storage": 3.76,
-        "Robot_1_Observation_to_Place_Storage": 3.43,
+        "Robot_1_Observation_to_Place_Storage": 3.23,
         "Robot_0_Standby_to_Place_Conveyor": 1.64,
-        "Robot_1_Standby_to_Place_Conveyor": 2.78,
-        "Robot_0_Storage_to_Standby": 7.38,
-        "Robot_1_Storage_to_Standby": 7.16,
-        "Robot_0_Place_Storage_to_Observation": 3.34,
-        "Robot_1_Place_Storage_to_Observation": 3.26,
+        "Robot_1_Standby_to_Place_Conveyor": 2.58,
+        "Robot_0_Storage_to_Standby": 8.08,
+        "Robot_1_Storage_to_Standby": 6.36,
+        "Robot_0_Place_Storage_to_Observation": 3.84,
+        "Robot_1_Place_Storage_to_Observation": 3.46,
         "Robot_0_Place_Conveyor_to_Observation": 2.93,
-        "Robot_1_Place_Conveyor_to_Observation": 2.90,
+        "Robot_1_Place_Conveyor_to_Observation": 3.40,
         "Robot_0_Observation_to_Workspace_Observation": 2.09,
-        "Robot_1_Observation_to_Workspace_Observation": 1.89,
+        "Robot_1_Observation_to_Workspace_Observation": 1.69,
     },
     "storagePositions": [
         [
@@ -156,14 +159,7 @@ configuration = {
         ],
         # Robot_1's positions
         [
-            [
-                0.2157542042065579,
-                0.20369258396709879,
-                0.1216293024165304,
-                2.158089291524011,
-                1.524596107925453,
-                2.2656189128608912,
-            ],  # PlaceConveyor
+            [0.22744446554269412, 0.17545894683672852, 0.12735923172057273, 3.0121401425618948, 1.4935637848388834, 2.9784549773477917],  # PlaceConveyor
             [0.2058824271247155, 0.0007054255360600889, 0.5307552368864079, -0.028579226480643805, 1.11042505722123, -0.03175794465104596],  # Observation
             [
                 -0.026088641405653677,

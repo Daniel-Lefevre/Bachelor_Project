@@ -8,30 +8,37 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".
 import cv2
 import keyboard
 import paramiko
-from pyniryo import ConveyorDirection, NiryoRobot, uncompress_image
+from pyniryo import NiryoRobot, uncompress_image
 
 from resources.environment import configuration
 
 
 def take_and_store_image(robot_index, counter, robot):
     img_compressed = robot.get_img_compressed()
-    if img_compressed:
-        # Uncompress and save the image
-        img = uncompress_image(img_compressed)
-        base_dir = r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment2ObjectFinder\Validation_Data"
-        dynamic_folder = f"robot_{robot_index}"
-        filename = str(counter) + ".jpg"
+    # Uncompress the image (assuming this is defined elsewhere)
+    img = uncompress_image(img_compressed)
 
-        # Combine base directory, dynamic folder, and filename
-        full_path = os.path.join(base_dir, dynamic_folder, filename)
+    # 1. Get the directory where THIS python script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # Save the image
-        cv2.imwrite(full_path, img)
-        print("Saved image")
+    # 2. Build the base_dir dynamically relative to the script
+    base_dir = os.path.join(script_dir, "Test")
 
-    else:
-        print("Could not take image")
-    time.sleep(1)
+    dynamic_folder = f"robot_{robot_index}"
+    filename = f"{counter}.jpg"
+
+    # Combine to get the target folder path
+    target_folder = os.path.join(base_dir, dynamic_folder)
+
+    # 3. Create the folder if it doesn't already exist (Crucial for dynamic paths)
+    os.makedirs(target_folder, exist_ok=True)
+
+    # Combine folder and filename
+    full_path = os.path.join(target_folder, filename)
+
+    # Save the image
+    cv2.imwrite(full_path, img)
+    print(f"Saved image to: {full_path}")
 
 
 # List over robot IPs
@@ -48,14 +55,14 @@ print("Calibrating...")
 robot_0.calibrate_auto()
 robot_1.calibrate_auto()
 
-robot_0.move_pose(*configuration["robot_0_overview_pose"])
-robot_1.move_pose(*configuration["robot_1_overview_pose"])
+robot_0.move_pose(*configuration["positions"][0][2])
+robot_1.move_pose(*configuration["positions"][1][2])
 
 conveyor_id_0 = robot_0.set_conveyor()
 conveyor_id_1 = robot_1.set_conveyor()
 
-robot_0.run_conveyor(conveyor_id_0, speed=0, direction=ConveyorDirection.BACKWARD)
-robot_1.run_conveyor(conveyor_id_1, speed=0, direction=ConveyorDirection.BACKWARD)
+# robot_0.run_conveyor(conveyor_id_0, speed=0, direction=ConveyorDirection.BACKWARD)
+# robot_1.run_conveyor(conveyor_id_1, speed=0, direction=ConveyorDirection.BACKWARD)
 
 
 def _enable_camera(ip: str) -> bool:
@@ -86,11 +93,15 @@ def _enable_camera(ip: str) -> bool:
 for ip in robot_IPs:
     print(_enable_camera(ip))
 
-counter = 1
+counter = 61
 
 while True:
     if keyboard.is_pressed("1"):
-        # take_and_store_image(0, counter, robot_0)
-        # take_and_store_image(1, counter, robot_1)
+        take_and_store_image(0, counter, robot_0)
+        time.sleep(1)
+        counter += 1
+
+    elif keyboard.is_pressed("2"):
+        take_and_store_image(1, counter, robot_1)
         time.sleep(1)
         counter += 1

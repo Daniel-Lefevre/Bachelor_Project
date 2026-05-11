@@ -31,7 +31,7 @@ class VirtualRobot:
         self.storage = VirtualStorage(self.id)
         self.next_destination = None
         self.anomaly_logs = []
-        self.has_exited_anoamly15 = True
+        self.has_exited_anoamly_6 = True
 
     # Handles the transition between states of the virtual robot arm
     def _state_transition(self, objec_at_drop_off: bool) -> tuple[bool, str | None]:
@@ -48,14 +48,17 @@ class VirtualRobot:
         #
         elif self.state.key in ["Storage_to_Standby", "Observation_to_Standby"]:
             if objec_at_drop_off:
-                if self.has_exited_anoamly15:
-                    self.anomaly_logs.append((f"Robot {self.id}", "Anomaly 6 has occured"))
+                if self.has_exited_anoamly_6:
+                    self.anomaly_logs.append((f"Robot {self.id}", configuration["Anomalies"][6]))
                 self.state = self.states["Standby"]
-                self.has_exited_anoamly15 = False
+
+                # Start conveyor belt if nothing at IR sensor
+
+                self.has_exited_anoamly_6 = False
             else:
                 self.state = self.states["Standby_to_Place_Conveyor"]
                 dropping_object = True
-                self.has_exited_anoamly15 = True
+                self.has_exited_anoamly_6 = True
 
         elif self.state.key == "Standby_to_Place_Conveyor":
             placed_position = "Conveyor"
@@ -116,14 +119,12 @@ class VirtualRobot:
                 self.current_state_progress = 0
                 self.current_state_progress_goal = self.state.time
             else:
-                print(self.state.key)
-                raise Exception(f"Wrong state for anomaly 7 {self.state}")
+                # print(self.state.key)
+                raise Exception(f"Wrong state for anomaly 7 {self.state.key}")
         else:
             raise Exception(f"Unknown anomaly: {anomaly}")
 
     def step(self, objec_at_drop_off: bool, object_at_ir: bool) -> tuple[VirtualObject | None, str | None, bool | None] | None:
-        # print(f"{self.id}: {self.state.key}")
-
         # if self.id == 1:
         #     print("---------------")
 
@@ -149,7 +150,7 @@ class VirtualRobot:
             self.current_state_progress_goal = self.state.time
             self.current_state_progress = 0
             dropping_object = True
-            self.has_exited_anoamly15 = True
+            self.has_exited_anoamly_6 = True
 
         picked_up = False
         placed_position = None
@@ -159,15 +160,16 @@ class VirtualRobot:
             dropping_object = dropping_object or dropping_object_ret
             self.current_state_progress = 0
 
+        conveyor_turn_on = False
         if self.state.key in ["Observation", "Standby"] and not object_at_ir:
-            self.conveyor.start()
+            conveyor_turn_on = self.conveyor.start()
         else:
             self.conveyor.stop()
 
         self.current_state_progress += self.step_size
 
         # print(f"{self.id}{self.state.key}: {picked_up}")
-        return (self.working_object, picked_up, placed_position, dropping_object)
+        return (self.working_object, picked_up, placed_position, dropping_object, conveyor_turn_on)
 
     def get_info(self) -> tuple[RobotStates, float]:
         progress = 0
@@ -184,3 +186,9 @@ class VirtualRobot:
 
     def exit_setup(self) -> None:
         self.state = self.states["Observation"]
+
+    def stop_conveyor(self) -> None:
+        self.conveyor.stop()
+
+    def set_working_object(self, working_object) -> None:
+        self.working_object = working_object

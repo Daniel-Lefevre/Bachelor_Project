@@ -4,22 +4,21 @@ import cv2
 import pandas as pd
 
 labeled_data = [
-    r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment2ObjectFinder\dataset_robot_0\Training_Data\labels_my-project-name_2026-03-20-02-31-19.csv",
-    r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment2ObjectFinder\dataset_robot_1\Training_Data\labels_my-project-name_2026-03-20-02-55-07.csv",
+    r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment5Storage\Detection\Training_Data\labels_my-project-name_2026-05-11-11-13-58.csv",
 ]
 
-object_counter = {"Green_Circle": 1, "Green_Square": 1, "Blue_Circle": 1, "Blue_Square": 1, "Red_Circle": 1, "Red_Square": 1, "Unknown": 1}
+object_counter = {"Blue_Circle": 1, "Blue_Square": 1, "Green_Circle": 1, "Green_Square": 1, "Red_Circle": 1, "Red_Square": 1, "Unidentified_Object": 1}
 
 buffer = 10
 max_x = 639
 max_y = 479
 
-for robot_index in range(2):
+for robot_index in range(1):
     df = pd.read_csv(labeled_data[robot_index])
 
     for index, row in df.iterrows():
         # Read the image
-        img = cv2.imread(f"C:/Users/danie/OneDrive/Skrivebord/Rep/Bachelor_Project/Experiments/Experiment2ObjectFinder/dataset_robot_{robot_index}/Training_Data/images/{row['image_name']}")
+        img = cv2.imread(f"C:/Users/danie/OneDrive/Skrivebord/Rep/Bachelor_Project/Experiments/Experiment5Storage/Detection/Training_Data/images/{row['image_name']}")
 
         if img is None:
             print(f"Could not find image: {row['image_name']}")
@@ -47,7 +46,11 @@ for robot_index in range(2):
 
         crop = img[y_lower:y_higher, x_lower:x_higher]
 
-        output_folder = f"C:/Users/danie/OneDrive/Skrivebord/Rep/Bachelor_Project/Experiments/Experiment4OpenSetRecognition/Training_Data/{row['label_name']}"
+        output_folder = f"C:/Users/danie/OneDrive/Skrivebord/Rep/Bachelor_Project/Experiments/Experiment5Storage/Classification/Training_Data/{row['label_name']}"
+
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+
         filename = f"{object_counter[row['label_name']]}.jpg"
         object_counter[row["label_name"]] += 1
         full_path = os.path.join(output_folder, filename)

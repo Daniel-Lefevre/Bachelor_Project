@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from PIL import Image, ImageOps
 
-from src.PresentationLayer.Animation import Animation
+from src.PresentationLayer.animation import Animation
 
 
 class GUI:

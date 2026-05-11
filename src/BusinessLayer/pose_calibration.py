@@ -18,7 +18,7 @@ robot_1.calibrate_auto()
 time.sleep(3)
 
 robot_0.set_learning_mode(True)
-# robot_1.set_learning_mode(True)
+robot_1.set_learning_mode(True)
 
 # for workspace in robot_0.get_workspace_list():
 #     robot_0.delete_workspace(workspace)

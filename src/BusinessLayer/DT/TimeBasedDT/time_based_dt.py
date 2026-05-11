@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from queue import Queue
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 from pyniryo import ObjectColor, ObjectShape
@@ -22,6 +23,7 @@ class TimeBasedDT:
         self.virtual_robots = [VirtualRobot(id, self.step_size) for id in range(configuration["NumberOfRobotArms"])]
         self.robots_dropping_objects = []
         self.anomaly_log_messages = []
+        self.last_ir_readings = (False, False)
 
     #
     #
@@ -44,36 +46,38 @@ class TimeBasedDT:
 
         return False
 
-    def _check_virtual_objects_at_ir_sensor(self, conveyor_id: int) -> bool:
-        for virt_obj in self.virtual_objects:
-            if virt_obj.get_state().key == f"IR_{conveyor_id}":
-                return True
-
-        return False
-
     #
     #
     # Public function
     #
     #
 
-    def step(self) -> None:
+    def step(self, latest_ir_readings) -> None:
+        # Check if something has arrived at ir
+        for robot_id in range(len(self.virtual_robots)):
+            if latest_ir_readings[robot_id] and not self.last_ir_readings[robot_id]:
+                object_to_add = SimpleNamespace(state=SimpleNamespace(origin="IR"))
+                self.virtual_robots[robot_id].add_to_queue(configuration["PickFromIRSensorPriority"], object_to_add)
+
         # If an event has occured since last step
-        leaving_conveyor = None
         while not self.events.empty():
             event_type, event_param = self.events.get()
             if event_type == "Pick Up":
                 robot_id = int(event_param.state.id)
                 self.virtual_robots[robot_id].add_to_queue(configuration["PickFromStoragePriority"], self._find_virtual_object(event_param.shape, event_param.color))
-            elif event_type == "IR":
-                conveyor_id = event_param
-                furthest_object = self._get_object_furthest_on_conveyor(conveyor_id)
-                if furthest_object is not None:
-                    leaving_conveyor = (furthest_object.shape, furthest_object.color, conveyor_id)
 
             elif event_type == "Setup done":
                 for robot in self.virtual_robots:
                     robot.exit_setup()
+
+            elif event_type == "Object_seen_at_IR":
+                shape, color, robot_id = event_param
+                for virtual_object in self.virtual_objects:
+                    if virtual_object.shape == shape and virtual_object.color == color:
+                        virtual_object.set_ir_hit_progress(robot_id)
+                        virtual_object.set_state(f"IR_{robot_id}")
+
+                self.virtual_robots[robot_id].set_working_object(self._find_virtual_object(shape, color))
 
             elif event_type == "Anomaly 13":
                 robot_id, shape, color = event_param
@@ -96,7 +100,6 @@ class TimeBasedDT:
                 for virt_obj in self.virtual_objects:
                     if virt_obj.shape == shape and virt_obj.color == color:
                         virt_obj.handle_anomaly("Anomaly 3", robot_id_arrival)
-                        self.virtual_robots[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], virt_obj)
 
             elif event_type == "Anomaly 7":
                 robot_id, shape, color = event_param
@@ -121,7 +124,7 @@ class TimeBasedDT:
             conveyor_id = int(not robot_id)
             object_at_drop_off = self._check_virtual_objects_drop_off_state(conveyor_id)
 
-            object_at_ir = self._check_virtual_objects_at_ir_sensor(robot_id)
+            object_at_ir = latest_ir_readings[robot_id]
             return_obj = virtual_robot.step(object_at_drop_off, object_at_ir)
             # print(f"Robot {robot_id} state: {virtual_robot.state.key}")
             if return_obj is None:
@@ -147,18 +150,12 @@ class TimeBasedDT:
             ID = virtual_obj.state.id
             conveyor_running = self.virtual_robots[ID].get_conveyor_info()
 
-            conveyor_id_to_be_left = None
-            if leaving_conveyor is not None and leaving_conveyor[0] == virtual_obj.shape and leaving_conveyor[1] == virtual_obj.color:
-                conveyor_id_to_be_left = leaving_conveyor[2]
-
-            virtual_obj.step(picked_up, placed_position, conveyor_running, conveyor_id_to_be_left)
+            virtual_obj.step(picked_up, placed_position, conveyor_running)
             # if virtual_obj.color == ObjectColor.RED and virtual_obj.shape == ObjectShape.CIRCLE:
             # print(f"RED Circle state: {virtual_obj.state.key}")
             # Check if virtual object has reached in IR sensor
 
-            if virtual_obj.get_ir_state():
-                self.virtual_robots[ID].add_to_queue(configuration["PickFromIRSensorPriority"], virtual_obj)
-                virtual_obj.set_ir_state(False)
+        self.last_ir_readings = latest_ir_readings
 
     def _get_object_furthest_on_conveyor(self, conveyor_id: int) -> None | VirtualObject:
         current_furthest_object = None

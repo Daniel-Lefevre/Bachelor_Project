@@ -39,30 +39,30 @@ def crop_and_mask_polygon(image_path, points):
 if __name__ == "__main__":
     # Define your 4 coordinates.
     # Note: Make sure to fill in robot_0_points before running, empty tuples will cause an error!
-    robot_0_points = [(159, 154), (428, 118), (456, 336), (187, 369)]
-    robot_1_points = [(91, 132), (348, 61), (404, 276), (146, 345)]
+    robot_0_points = [(186, 82), (421, 92), (416, 332), (172, 322)]
+    robot_1_points = [(214, 52), (447, 106), (398, 344), (152, 288)]
 
     # Define your input and output directories
     # Blue_Circle, Blue_Square, Green_Circle, Green_Square, No_Object, Red_Circle, Red_Square, Unidentified_Object
 
-    for label in ["Unidentified_Object"]:
-        # for label in ["Blue_Circle", "Blue_Square", "Green_Circle", "Green_Square", "No_Object", "Red_Circle", "Red_Square"]:
-        input_folder = os.path.join(r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Test_Data", label)
-        output_folder = os.path.join(r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment1OpenSetRecognision\Test_Data", label)
+    # for label in ["Unidentified_Object"]:
+    # for label in ["Blue_Circle", "Blue_Square", "Green_Circle", "Green_Square", "No_Object", "Red_Circle", "Red_Square"]:
+    input_folder = os.path.join(r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment5Storage\Test_Data\Robot_1")
+    output_folder = os.path.join(r"C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment5Storage\Test_Data_Cropped\Robot_1")
 
-        # Create the output directory if it doesn't already exist
-        os.makedirs(output_folder, exist_ok=True)
+    # Create the output directory if it doesn't already exist
+    os.makedirs(output_folder, exist_ok=True)
 
-        # Loop over image numbers 1 through 200
-        for i in range(16, 31):
-            filename = f"{i}.jpg"
+    # Loop over image numbers 1 through 200
+    for i in range(31, 61):
+        filename = f"{i}.jpg"
 
-            # Safely construct the full paths
-            input_path = os.path.join(input_folder, filename)
-            output_path = os.path.join(output_folder, filename)
+        # Safely construct the full paths
+        input_path = os.path.join(input_folder, filename)
+        output_path = os.path.join(output_folder, filename)
 
-            # Process the image (Notice we removed padding=30 here)
-            result_image = crop_and_mask_polygon(input_path, robot_1_points)
+        # Process the image (Notice we removed padding=30 here)
+        result_image = crop_and_mask_polygon(input_path, robot_1_points)
 
-            # Save the new image to the output folder
-            success = cv2.imwrite(output_path, result_image)
+        # Save the new image to the output folder
+        success = cv2.imwrite(output_path, result_image)

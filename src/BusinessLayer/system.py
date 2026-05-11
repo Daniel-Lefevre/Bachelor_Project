@@ -21,13 +21,14 @@ class System:
         self.DT = DTRunner()
         self.lock = threading.Lock()
         self.DT.create_event(("Setup done", None))
+        self.stop_event = threading.Event()
 
         # Add all the robot arms
         for i in range(len(ips)):
             id_value = i
             ip_address = ips[i]
             poses = positions[i]
-            self.robot_arms.append(RobotArm(ip_address, poses, id_value, copy.deepcopy(configuration["StorageOccupancy"][id_value])))
+            self.robot_arms.append(RobotArm(ip_address, poses, id_value, copy.deepcopy(configuration["StorageOccupancy"][id_value]), self.stop_event))
 
     #
     #
@@ -47,7 +48,13 @@ class System:
 
         # 2. Monitoring Phase
         while self.running:
+            # if arm.ID == 1:
+            #     print("START LOOP")
+
             arm.loop()
+
+            # if arm.ID == 1:
+            #     print("END LOOP")
             time.sleep(0.1)
 
         # Disconnect when not running
@@ -57,6 +64,10 @@ class System:
     # Updates storage object to its new position
     def _update_object(self, shape: ObjectShape, color: ObjectColor, position: str) -> None:
         with self.lock:
+            if position == "IR_0" or position == "IR_1":
+                robot_id = int(position[-1])
+                self.DT.create_event(("Object_seen_at_IR", (shape, color, robot_id)))
+
             for i in range(len(self.storage_objects)):
                 obj = self.storage_objects[i]
                 if obj.shape == shape and obj.color == color:
@@ -93,8 +104,8 @@ class System:
                 messages = robot_arm.get_anomaly_updates()
                 for message in messages:
                     if message[0] in ["Anomaly 13 Mitigation failed", "Anomaly 9"]:
+                        robot_arm.set_mitigation_mode(True)
                         self._create_dt_anomaly_event(message[0], robot_id)
-                        self.stop_system()
                     elif message[0] == "Anomaly 13":
                         id_value, shape, color = message[1]
                         self._create_dt_anomaly_event(message[0], id_value, shape, color)
@@ -114,7 +125,7 @@ class System:
         event_param = (robot_id, shape, color)
         self.DT.create_event((eventype, event_param))
 
-    # Create rules for the robotarms to mitigat anomaly 7
+    # Create rules for the robotarms to mitigate anomaly 7
     def _anomaly_7_mitigation(self, robot_id_arrival: int, shape: ObjectShape, color: ObjectColor) -> None:
         # Rules for physical system
         self.robot_arms[robot_id_arrival].set_rules({(shape, color): "Conveyor"})
@@ -157,27 +168,19 @@ class System:
 
     # Listens to the IR sensor, if the IR just switched from false to true, then create an event in the DT
     def _ir_listener(self) -> None:
-        has_received_false = [False, False]
         while self.running:
-            for id in range(len(self.robot_arms)):
-                robot_arm = self.robot_arms[id]
-                if robot_arm.get_ir():
-                    if has_received_false[id]:
-                        with self.lock:
-                            self.DT.create_event(("IR", id))
-                        has_received_false[id] = False
-                else:
-                    has_received_false[id] = True
+            with self.lock:
+                self.DT.create_event(("IR", (self.robot_arms[0].get_ir(), self.robot_arms[1].get_ir())))
 
             time.sleep(0.1)
 
     def _image_listener(self) -> None:
         while self.running:
             for robot_id in range(len(self.robot_arms)):
-                image = self.robot_arms[robot_id].get_latest_image()
-                if image is not None:
+                image, metadata = self.robot_arms[robot_id].get_latest_image()
+                if image is not None and metadata is not None:
                     with self.lock:
-                        event_param = (image, robot_id)
+                        event_param = (image, metadata)
                         self.DT.create_event(("Image", event_param))
 
             time.sleep(0.1)
@@ -190,8 +193,8 @@ class System:
 
     # Stop the system from running, which means we cannot control the system anymore
     def stop_system(self) -> None:
-        print("STOP")
         self.running = False
+        self.stop_event.set()
         self.DT.stop_dt()
 
         # Wait for the threads to finnish their task before shutting down
@@ -199,7 +202,10 @@ class System:
         if hasattr(self, "threads"):
             for t in self.threads:
                 if t is not current_thread:
-                    t.join()
+                    # If the thread doesn't close in 1s, move on anyway.
+                    t.join(timeout=5.0)
+                    if t.is_alive():
+                        print(f"Warning: Thread {t.name} did not shut down cleanly.")
 
     # Setup all the listeners in system
     def set_up(self) -> None:
@@ -207,20 +213,20 @@ class System:
 
         self.threads = []
 
-        t_ir = threading.Thread(target=self._ir_listener)
+        t_ir = threading.Thread(target=self._ir_listener, daemon=True)
         self.threads.append(t_ir)
         t_ir.start()
 
         for arm in self.robot_arms:
-            t = threading.Thread(target=self._robot_worker, args=(arm,))
+            t = threading.Thread(target=self._robot_worker, args=(arm,), daemon=True)
             self.threads.append(t)
             t.start()
 
-        t_anomaly = threading.Thread(target=self._anomaly_listener)
+        t_anomaly = threading.Thread(target=self._anomaly_listener, daemon=True)
         self.threads.append(t_anomaly)
         t_anomaly.start()
 
-        t_image = threading.Thread(target=self._image_listener)
+        t_image = threading.Thread(target=self._image_listener, daemon=True)
         self.threads.append(t_image)
         t_image.start()
 
@@ -259,7 +265,8 @@ class System:
             self.robot_arms[robot_id].drop_object()
 
         for anomaly_log_object in info[1]:
-            if anomaly_log_object[2] in ["Mitigation for anomaly 1, 4, 5, 10, 11 or 12 has failed", "Anomaly 9"]:
+            print(f"{anomaly_log_object[2]}")
+            if anomaly_log_object[2] in ["Anomaly 13 Mitigation failed", "Mitigation for anomaly 1, 4, 5, 10, 11 or 12 has failed", "Anomaly 9: Missing object in storage", "Anomaly 14"]:
                 self.stop_system()
 
         return info

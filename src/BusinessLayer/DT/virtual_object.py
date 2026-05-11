@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import copy
-import time
 from typing import TYPE_CHECKING
+
+from pyniryo import ObjectColor, ObjectShape
 
 from src.BusinessLayer.DT.States import ObjectStates
 
 if TYPE_CHECKING:
-    from pyniryo import ObjectColor, ObjectShape
+    #     from pyniryo import ObjectColor, ObjectShape
 
     from src.BusinessLayer.DT.States import ObjectState
 
@@ -21,16 +22,24 @@ class VirtualObject:
         self.current_state_progress_goal = float("inf")
         self.current_state_progress = 0
         self.step_size = step_size
-        self.has_reached_ir = False
         self.anomaly_logs = []
         self.time_object_went_missing = None
+        self.ir_hit_progress = None
+        self.has_been_observed_on_conveyor = False
+        self.time_buffer = 2.5  # seconds
 
     # PUBLIC METHODS
-    def set_ir_state(self, state: bool) -> None:
-        self.has_reached_ir = state
 
-    def get_ir_state(self) -> bool:
-        return self.has_reached_ir
+    def set_state(self, state: str):
+        self.state = self.states[state]
+        self.current_state_progress_goal = self.state.time
+        self.current_state_progress = 0
+
+    def set_ir_hit_progress(self, robot_id):
+        if self.state.origin == "Conveyor":
+            self.ir_hit_progress = self.current_state_progress
+        else:
+            self.ir_hit_progress = self.states[f"Conveyor_{robot_id}"].time
 
     def get_state(self):
         return self.state
@@ -71,33 +80,31 @@ class VirtualObject:
             raise Exception(f"Unknown anomaly: {anomaly}")
 
     # Simulate a single step in the virtual object
-    def step(self, picked_up: bool, placed_position: str | None, conveyor_running: bool, activated_ir_id: int | None):
+    def step(self, picked_up: bool, placed_position: str | None, conveyor_running: bool):
         # if the virtual object has reached an IR sensor
-        if activated_ir_id is not None and self.state.origin == "Conveyor" and self.state.id == activated_ir_id:
+        if self.state.origin == "IR" and self.ir_hit_progress:
+            progress_goal = self.states[f"Conveyor_{self.state.id}"].time
             # Check if the object has arrived too early
-            print(f"{self.current_state_progress} / {self.current_state_progress_goal}")
-            if self.current_state_progress_goal - self.current_state_progress > 1.0:
-                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 2 or 4 has occured"))
+            if progress_goal - self.ir_hit_progress > self.time_buffer:
+                self.anomaly_logs.append((f"Conveyor {self.state.id}", f"Either anomaly 2 or 4 has occured ({self.shape}, {self.color})"))
             # Check if the object has arrived too late
-            elif self.current_state_progress_goal - self.current_state_progress < -1.0:
+            elif progress_goal - self.ir_hit_progress < -self.time_buffer:
                 self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 1 or 4 has occured"))
                 self.time_object_went_missing = None
 
-            # Since either anomaly group has the mitigation to continue, then continue
-            self.state = self.states[f"IR_{self.state.id}"]
-            self.current_state_progress_goal = float("inf")
-            self.current_state_progress = 0
-            self.has_reached_ir = True
+            self.ir_hit_progress = None
 
         # if the object has not reached an IR sensor and is arriving late then a larger group of anomalies has occured
-        elif self.current_state_progress_goal - self.current_state_progress < -1.0:
+        elif self.current_state_progress_goal - self.current_state_progress < -self.time_buffer:
             if self.time_object_went_missing is None:
                 self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 1, 4, 5, 10, 11 or 12 has occured"))
-                self.time_object_went_missing = time.time()
+                self.time_object_went_missing = self.current_state_progress
 
             # if more than 10 seconds has gone by without the object arriving at the IR sensor then cast anomaly that shuts down the system
-            elif time.time() - self.time_object_went_missing > 10:
+            elif self.time_object_went_missing - self.current_state_progress < -10.0:
+                print(f"Mitigation failed: {self.shape} {self.color}. Progress: {self.current_state_progress}/{self.current_state_progress_goal}")
                 self.anomaly_logs.append((f"Conveyor {self.state.id}", "Mitigation for anomaly 1, 4, 5, 10, 11 or 12 has failed"))
+                self.time_object_went_missing = None
 
         # if the virtual object has been placed on a conveyor then update the object
         elif placed_position == "Conveyor":
@@ -105,6 +112,7 @@ class VirtualObject:
             self.state = self.states[f"Conveyor_{opposite_id}"]
             self.current_state_progress_goal = self.state.time
             self.current_state_progress = 0
+            self.has_been_observed_on_conveyor = False
 
         # if the virtual object has been placed in storage then update the object
         elif placed_position == "Storage":
@@ -114,7 +122,6 @@ class VirtualObject:
 
         # if the virtual object has been picked up by a robot then update the object
         elif picked_up:
-            print("Getting picked up")
             self.state = self.states[f"Robot_{self.state.id}"]
             self.current_state_progress_goal = float("inf")
             self.current_state_progress = 0

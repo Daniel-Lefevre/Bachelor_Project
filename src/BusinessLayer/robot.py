@@ -1,6 +1,7 @@
 import copy
 import threading
 import time
+from types import SimpleNamespace
 
 import cv2
 import numpy as np
@@ -14,7 +15,7 @@ np.fromstring = np.frombuffer
 
 
 class RobotArm:
-    def __init__(self, ip: str, positions: list[float], id: int, initial_object_positions: list):
+    def __init__(self, ip: str, positions: list[float], id: int, initial_object_positions: list, stop_event: threading.Event):
         self.ip = ip
         self.robot = NiryoRobot(ip)
         self.ID = id
@@ -24,6 +25,7 @@ class RobotArm:
         self.storage_workspace = f"Storage_workspace_{self.ID}"
         self.conveyor_speed = 75
         self.place_conveyor, self.observation_pose, self.observation_pose_storage, self.standby_position, self.observation_pose_conveyor = positions
+        # self.observation_pose = self.observation_pose_conveyor
         self.place_storage = configuration["storagePositions"][self.ID]
         self.occupied_storage = initial_object_positions
         self.conveyor_id = self.robot.set_conveyor()
@@ -37,6 +39,7 @@ class RobotArm:
         self.object_updates = []
         self.anomaly_updates = []
         self.latest_image = None
+        self.latest_image_metadata = None
         self.time_of_last_image = 0
         self.image_time_interval = 1.0
         self.IR = False
@@ -46,6 +49,7 @@ class RobotArm:
         self.pick_and_place_first_try = True
         self.ready_to_drop = False
         self.conveyor_is_running = True
+        self.stop_event = stop_event
 
     def get_ir(self) -> bool:
         return self.IR
@@ -69,12 +73,10 @@ class RobotArm:
             self.rules[rule_key] = rules[rule_key]
 
     def remove_object_from_storage(self, shape: ObjectShape, color: ObjectColor) -> None:
-        print(f"storage: {self.occupied_storage}")
         for i in range(len(self.occupied_storage)):
             if self.occupied_storage[i] is not None:
                 if self.occupied_storage[i][0] == shape and self.occupied_storage[i][1] == color:
                     self.occupied_storage[i] = None
-                    print(self.occupied_storage)
                     return
 
     def get_object_updates(self) -> list[tuple[ObjectShape, ObjectColor, str]]:
@@ -92,8 +94,10 @@ class RobotArm:
 
     def get_latest_image(self) -> np.ndarray | None:
         image = copy.deepcopy(self.latest_image)
+        metadata = copy.copy(self.latest_image_metadata)
+        self.latest_image_metadata = None
         self.latest_image = None
-        return image
+        return (image, metadata)
 
     def _enable_camera(self) -> bool:
         output = ""
@@ -117,16 +121,16 @@ class RobotArm:
 
         return "average rate" in output
 
-    def _take_image(self) -> None:
+    def _take_image(self, location: str) -> None:
         current_time = time.time()
         if current_time - self.time_of_last_image > self.image_time_interval:
-            print(f"Time since last image: {current_time - self.time_of_last_image}")
             img_compressed = self.robot.get_img_compressed()
             img_bgr = uncompress_image(img_compressed)
             image_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
 
             self.time_of_last_image = current_time
             self.latest_image = image_rgb
+            self.latest_image_metadata = SimpleNamespace(id=self.ID, location=location)
 
     def _stop_conveyorbelt(self) -> None:
         self.conveyor_is_running = False
@@ -158,13 +162,13 @@ class RobotArm:
 
         if workspace == self.storage_workspace:
             if self.ID == 0:
-                target_pose.z += 0.016
+                target_pose.z += 0.011
                 target_pose.x += 0
-                target_pose.y -= 0.011
+                target_pose.y -= 0.008
             elif self.ID == 1:
-                target_pose.x += 0.01
+                target_pose.x += 0.020
                 target_pose.y += 0
-                target_pose.z -= 0.007
+                target_pose.z -= 0.005
         elif workspace == self.conveyor_workspace:
             if self.ID == 0:
                 target_pose.x += 0.0115
@@ -172,7 +176,7 @@ class RobotArm:
                 target_pose.z += 0.005
             elif self.ID == 1:
                 target_pose.x += 0.018
-                target_pose.y += 0.018
+                target_pose.y += 0.013
                 target_pose.z += 0.005
         return target_pose
 
@@ -182,6 +186,8 @@ class RobotArm:
     def _find_and_move_object(self, workspace: str, shape: ObjectShape, color: ObjectColor, destination: list[float] | None) -> None:
         # Try to detect the object 10 times
         for _ in range(10):
+            if self.stop_event.is_set():
+                return
             obj_found, object_pose, shape_ret, color_ret = self.robot.detect_object(workspace, shape=shape, color=color)
             if obj_found:
                 break
@@ -190,11 +196,12 @@ class RobotArm:
         if not obj_found:
             if destination is not None:  # Object is taken from storage
                 self.anomaly_updates.append(("Anomaly 9",))
+                self.mitigation_mode = True
 
         else:
-            # print(f"++++++++++Object found: {shape_ret}, {color_ret}++++++++++++")
             final_destination = False
-            if destination is None:
+            if destination is None:  # Conveyor
+                self.object_updates.append((shape_ret, color_ret, f"IR_{self.ID}"))
                 area = self.rules.get((shape_ret, color_ret))
                 if area is None:
                     # The wrong object is on the conveyor belt, cast anomaly 3
@@ -206,7 +213,6 @@ class RobotArm:
                     for i in range(len(self.occupied_storage)):
                         if self.occupied_storage[i] is None:
                             destination = self.place_storage[i]
-                            print(i, destination)
                             final_destination = True
                             self.occupied_storage[i] = (shape_ret, color_ret)
                             break
@@ -242,14 +248,13 @@ class RobotArm:
         with self.lock:
             if self.queue.empty():
                 if self.latest_image is None:
-                    self._take_image()
+                    self._take_image("Conveyors")
                 if not self._check_ir():
                     if not self.conveyor_is_running:
                         self._start_conveyorbelt()
                 else:
                     self.add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
             else:
-                print("SOmething in queue")
                 self._stop_conveyorbelt()
                 time.sleep(0.5)
                 workarea, shape, color = self.queue.get()
@@ -267,7 +272,6 @@ class RobotArm:
                     print(f"Workarea not defined. Workearea was {workarea}, but must be 'Storage' og 'Conveyor'")
 
     def _set_camera_settings(self, workarea: str) -> None:
-        print(f"Changing Camera Settings for {self.ID}")
         if workarea == "Conveyor":
             self.robot.set_brightness(self.brightness_level_conveyor)
             self.robot.set_contrast(self.contrast_level_conveyor)
@@ -307,7 +311,6 @@ class RobotArm:
             self.robot.calibrate_auto()
 
         # Move to safe position
-        print("Moving to safe position")
         self._move_to_observation_position()
 
         # Save the workspace defined in environment
@@ -317,13 +320,18 @@ class RobotArm:
         if self.storage_workspace not in self.robot.get_workspace_list():
             self.robot.save_workspace_from_robot_poses(self.storage_workspace, *configuration[self.storage_workspace])
 
+        time.sleep(1)
+
     def _move_to_observation_position(self) -> None:
         self.robot.move_pose(*self.observation_pose)
-        self._take_image()
+        time.sleep(0.5)
+        self._take_image("Conveyors")
 
     def _move_to_observation_position_storage(self) -> None:
         self.robot.move_pose(*self.observation_pose_storage)
+        time.sleep(0.5)
         self._set_camera_settings("Storage")
+        self._take_image("System")
 
     def _move_to_observation_position_conveyor(self) -> None:
         self.robot.move_pose(*self.observation_pose_conveyor)
@@ -334,10 +342,10 @@ class RobotArm:
             self._move_to_standby_position()
             start_time = time.time()
 
-            while not self.ready_to_drop:
+            while not self.ready_to_drop and not self.stop_event.is_set():
                 if self._check_ir():
                     self._stop_conveyorbelt()
-                elif time.time() - start_time > 1:
+                elif time.time() - start_time > 0.2:
                     self._start_conveyorbelt()
 
                 time.sleep(0.1)
@@ -345,8 +353,9 @@ class RobotArm:
             self._stop_conveyorbelt()
             self.ready_to_drop = False
 
-        self.robot.move_pose(*destination)
-        self._release_with_tool()
+        if not self.stop_event.is_set():
+            self.robot.move_pose(*destination)
+            self._release_with_tool()
 
     def _pick_and_place(self, destination: list[float], final_destination: bool, shape: ObjectShape, color: ObjectColor, workspace: str) -> None:
         if workspace == self.conveyor_workspace:
@@ -366,7 +375,8 @@ class RobotArm:
                 self.anomaly_updates.append(("Anomaly 13 Mitigation failed",))
                 return
 
-        self._move_to_observation_position()
+        if not self.stop_event.is_set():
+            self._move_to_observation_position()
 
         if workspace == self.conveyor_workspace:
             self.rules.pop((shape, color), None)

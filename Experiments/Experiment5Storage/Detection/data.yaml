@@ -1,0 +1,7 @@
+names:
+  0: Object
+nc: 1
+path: C:\Users\danie\OneDrive\Skrivebord\Rep\Bachelor_Project\Experiments\Experiment5Storage\Detection
+test: Test_Data/images
+train: Training_Data/images
+val: Validation_Data/images

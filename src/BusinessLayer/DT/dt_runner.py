@@ -3,11 +3,15 @@ from __future__ import annotations
 import queue
 import threading
 import time
+from datetime import datetime
 from typing import TYPE_CHECKING
+
+from src.BusinessLayer.DT.States import ObjectStates
+from src.BusinessLayer.DT.VisionBasedDT.conveyor_vision_module import ConveyorVisionModule
+from src.BusinessLayer.DT.VisionBasedDT.storage_vision_module import StorageVisionModule
 
 # from src.BusinessLayer.DT.TimeBasedDT.time_based_dt import TimeBasedDT
 from src.BusinessLayer.DT.VisionBasedDT.vision_based_dt import VisionBasedDT
-from src.BusinessLayer.DT.VisionBasedDT.vision_module import VisionModule
 
 if TYPE_CHECKING:
     import numpy as np
@@ -17,14 +21,19 @@ if TYPE_CHECKING:
 
 class DTRunner:
     def __init__(self):
-        self.step_size = 0.4
+        self.step_size = 0.2
+        # self.dt_model = VisionBasedDT(self.step_size)
         self.dt_model = VisionBasedDT(self.step_size)
         self.simulate_thread = None
         self.dt_lock = threading.Lock()
         self.running = False
         self.image_queue = queue.Queue()
         self.image_worker_thread = None
-        self.vision_module = VisionModule()
+        self.conveyor_vision_module = ConveyorVisionModule()
+        self.storage_vision_module = StorageVisionModule()
+        self.latest_ir_readings = (False, False)
+        self.unknow_object = None
+        self.has_logged_unknow = False
 
     # Private Functions
 
@@ -32,24 +41,36 @@ class DTRunner:
         while self.running:
             interval_start = time.time()
             with self.dt_lock:
-                self.dt_model.step()
+                self.dt_model.step(self.latest_ir_readings)
             current_time = time.time()
             sleep_time = self.step_size - (current_time - interval_start)
             if sleep_time < 0:
-                print(sleep_time)
+                # print(sleep_time)
                 sleep_time = 0
             time.sleep(sleep_time)
 
     def _image_worker(self):
         while self.running:
             try:
-                image, robot_id, state_snapshot = self.image_queue.get(timeout=1)
+                image, metadata, state_snapshot = self.image_queue.get(timeout=1)
+                robot_id = metadata.id
+                location = metadata.location
+                unknown_object = None
+                return_objects = []
 
-                # Heavy processing
-                return_objects, conveyor_cache_entries = self.vision_module.compare_image_with_DT(image, robot_id, state_snapshot)
-                event = ("Update_DT", (return_objects, conveyor_cache_entries))
+                if location == "Conveyors":
+                    # Heavy processing
+                    unknown_object, return_objects = self.conveyor_vision_module.compare_image_with_DT(image, robot_id, state_snapshot)
 
-                self._update_state_snapshots(return_objects)
+                elif location == "Storage":
+                    unknown_object, return_objects = self.storage_vision_module.compare_image_with_DT(image, robot_id, state_snapshot)
+
+                self._update_state_snapshots(return_objects, location)
+
+                if unknown_object is not None:
+                    self.unknow_object = unknown_object
+
+                event = ("Update_DT", return_objects)
 
                 # Update DT INSIDE lock
                 with self.dt_lock:
@@ -58,16 +79,32 @@ class DTRunner:
             except queue.Empty:
                 continue
 
-    def _update_state_snapshots(self, return_objects: list) -> None:
+    def _update_state_snapshots(self, return_objects: list, location: str) -> None:
         temp_list = []
 
         while not self.image_queue.empty():
-            image, robot_id, state_snapshot = self.image_queue.get()
+            image, metadata, state_snapshot = self.image_queue.get()
+            robot_id = metadata.id
+            location = metadata.location
 
             for virtual_object in state_snapshot.objects:
                 for return_object in return_objects:
                     if virtual_object.color == return_object.color and virtual_object.shape == return_object.shape:
-                        virtual_object.progress += return_object.error_correction
+                        # Correct all updates in dictionary from the vision module to the DT
+
+                        if location == "Conveyor":
+                            for update_category in return_object.updates:
+                                if update_category == "error_correction":
+                                    virtual_object.progress += return_object[update_category]
+
+                        elif location == "Storage":
+                            for update_category in return_object.updates:
+                                if update_category == "Updated_State":
+                                    origin = {return_object[update_category].origin}
+                                    storage_id = {return_object[update_category].id}
+                                    state_key = f"{origin}_{storage_id}"
+
+                                    virtual_object.state = ObjectStates[state_key]
 
             temp_list.append((image, robot_id, state_snapshot))
 
@@ -92,9 +129,13 @@ class DTRunner:
         eventype, event_param = event
 
         if eventype == "Image":
-            image, robot_id = event_param
-            event_param = (image, robot_id, self.dt_model.get_state_snapshot())
+            image, metadata = event_param
+            event_param = (image, metadata, self.dt_model.get_state_snapshot())
             self.image_queue.put(event_param)
+            return
+
+        if eventype == "IR":
+            self.latest_ir_readings = event_param
             return
 
         with self.dt_lock:
@@ -108,4 +149,16 @@ class DTRunner:
             self.image_worker_thread.join()
 
     def get_info_dt(self) -> tuple[list[tuple[str, int, str]], dict[list, list, list]]:
-        return self.dt_model.get_info_dt()
+        info = self.dt_model.get_info_dt()
+
+        if self.unknow_object is not None and not self.has_logged_unknow:
+            current_time = datetime.now().strftime("%H:%M")
+            if self.unknow_object["Location"] == "Conveyors":
+                info[1].append((current_time, f"Conveyor {self.unknow_object['Conveyor']}", "Anomaly 14"))
+            elif self.unknow_object["Location"] == "Storage":
+                info[1].append((current_time, f"Storage {self.unknow_object['Storage']}", "Anomaly 15"))
+            self.has_logged_unknow = True
+
+        # print(info[1])
+
+        return info

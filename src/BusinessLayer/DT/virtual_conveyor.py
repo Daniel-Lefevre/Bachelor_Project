@@ -3,8 +3,10 @@ class VirtualConveyor:
         self.id = id
         self.running = True
 
-    def start(self) -> None:
-        self.running = True
+    def start(self) -> bool:
+        if not self.running:
+            self.running = True
+            return True
 
     def stop(self) -> None:
         self.running = False

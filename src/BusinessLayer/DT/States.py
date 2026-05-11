@@ -12,14 +12,14 @@ class ObjectState(NamedTuple):
 
 
 ObjectStates = {
-    "Storage_0": ObjectState(key="Storage_0", origin="Storage", id=0),
-    "Storage_1": ObjectState(key="Storage_1", origin="Storage", id=1),
+    "Storage_0": ObjectState(key="Storage_0", origin="Storage", id=0, time=float("inf")),
+    "Storage_1": ObjectState(key="Storage_1", origin="Storage", id=1, time=float("inf")),
     "Conveyor_0": ObjectState(key="Conveyor_0", origin="Conveyor", id=0, time=configuration["Observed_times"]["Conveyor_0"]),
     "Conveyor_1": ObjectState(key="Conveyor_1", origin="Conveyor", id=1, time=configuration["Observed_times"]["Conveyor_1"]),
-    "IR_0": ObjectState(key="IR_0", origin="IR", id=0),
-    "IR_1": ObjectState(key="IR_1", origin="IR", id=1),
-    "Robot_0": ObjectState(key="Robot_0", origin="Robot", id=0),
-    "Robot_1": ObjectState(key="Robot_1", origin="Robot", id=1),
+    "IR_0": ObjectState(key="IR_0", origin="IR", id=0, time=float("inf")),
+    "IR_1": ObjectState(key="IR_1", origin="IR", id=1, time=float("inf")),
+    "Robot_0": ObjectState(key="Robot_0", origin="Robot", id=0, time=float("inf")),
+    "Robot_1": ObjectState(key="Robot_1", origin="Robot", id=1, time=float("inf")),
 }
 
 
