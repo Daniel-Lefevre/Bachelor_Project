@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import time
 from types import SimpleNamespace
 
 import cv2
@@ -13,6 +12,8 @@ from pyniryo import ObjectColor, ObjectShape
 from torchvision import transforms
 from torchvision.models import resnet18
 from ultralytics import YOLO
+
+from resources.environment import configuration
 
 
 class StorageVisionModule:
@@ -84,6 +85,7 @@ class StorageVisionModule:
                     x_higher = max_x
 
                 cropped_img = image[y_lower:y_higher, x_lower:x_higher]
+
                 cropped_images.append(cropped_img)
 
         return cropped_images
@@ -178,28 +180,34 @@ class StorageVisionModule:
         virtual_robots = state_snapshot.robots
 
         classified_objects = self.process_image(image, robot_id)
+        print("Classified object:", classified_objects)
 
         for object in classified_objects:
             # Check for unknows
             if object == "Unknown":
                 self.unknown_object = {"Location": "Storage", "Storage": robot_id}
 
-                folder_path = os.path.join(self.current_dir, "unknown_images")
-                if not os.path.exists(folder_path):
-                    os.makedirs(folder_path)
-
-                # 2. Define the filename
-                # We use a timestamp or unique values to prevent overwriting
-                timestamp = int(time.time())
-                filename = f"unknown_R{robot_id}_{timestamp}.jpg"
-                save_file_path = os.path.join(folder_path, filename)
-                cv2.imwrite(save_file_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
-
                 print(f"Robot {robot_id}: Unknown Object in storage {robot_id}")
 
         classified_objects_filtered = [object for object in classified_objects if object != "Unknown"]
 
         return_objects = []
+        anomalies = []
+
+        storage_pickup_confirmation = "Waiting"
+
+        for virtual_object in virtual_objects:
+            if virtual_object.state.id == robot_id and virtual_object.state.origin == "Robot":
+                storage_pickup_confirmation = "Success"
+
+            object_in_storage = False
+            for image_object in classified_objects_filtered:
+                (image_object_shape, image_object_color) = image_object
+                if virtual_object.shape == image_object_shape and virtual_object.color == image_object_color:
+                    object_in_storage = True
+
+            if not object_in_storage and virtual_object.state.origin == "Storage" and virtual_object.state.id == robot_id:
+                anomalies.append((configuration["Anomalies"][9], robot_id))
 
         # Loop through the objects in the image and compare with the state of the DT
         for image_object in classified_objects_filtered:
@@ -208,6 +216,7 @@ class StorageVisionModule:
             for virtual_object in virtual_objects:
                 if virtual_object.shape == image_object_shape and virtual_object.color == image_object_color:
                     update_object_dict = {}
+
                     # Check if the object should be in a storage
                     if virtual_object.state.origin == "Storage":
                         # Check if the object is in the correct storage
@@ -216,17 +225,19 @@ class StorageVisionModule:
 
                         # Object is in the wrong storage
                         else:
-                            update_object_dict["Updated_State"] = 0 if robot_id else 1
+                            update_object_dict["Updated_State"] = SimpleNamespace(origin="Storage", id=robot_id)
 
                     # Object is in storage but in the DT is elsewhere
-                    else:
+                    elif virtual_object.state.origin == "Robot" and virtual_object.state.id == robot_id:
+                        storage_pickup_confirmation = "Failure"
                         update_object_dict["Updated_State"] = SimpleNamespace(origin="Storage", id=robot_id)
 
-                    if not update_object_dict:
+                    if update_object_dict:
                         return_object = SimpleNamespace(color=virtual_object.color, shape=virtual_object.shape, updates=update_object_dict)
                         return_objects.append(return_object)
 
-        return (self.unknown_object, return_objects)
+        print(f"storage_pickup_confirmation: {storage_pickup_confirmation}")
+        return (self.unknown_object, return_objects, storage_pickup_confirmation, anomalies)
 
 
 # Progress cutoff values

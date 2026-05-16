@@ -62,6 +62,7 @@ class VisionBasedDT:
                 state=object.get_state(),
                 progress=object.get_progress(),
                 has_been_observed_on_conveyor=object.has_been_observed_on_conveyor,
+                missing_counter=object.missing_counter,
             )
             objects.append(object_info)
 
@@ -101,8 +102,12 @@ class VisionBasedDT:
 
                 self.virtual_robots[robot_id].set_working_object(self._find_virtual_object(shape, color))
 
+            elif event_type == "Storage_Pickup_Confirmation":
+                storage_pickup_confirmation, robot_id = event_param
+                self.virtual_robots[robot_id].set_storage_pickup_confirmation(storage_pickup_confirmation)
+
             elif event_type == "Update_DT":
-                return_objects = event_param
+                return_objects, location = event_param
 
                 # Update all all the virtual objects in the DT based on the feedback from the image taken in vision module
                 for return_object in return_objects:
@@ -110,7 +115,7 @@ class VisionBasedDT:
                         # Find the correct virtual object and check its state is conveyor
                         if return_object.color == virtual_object.color and return_object.shape == virtual_object.shape:
                             # Check of the return object is on the conveyor
-                            if return_object.state.origin == "Conveyor":
+                            if location == "Conveyors":
                                 for update_category in return_object.updates:
                                     if update_category == "error_correction":
                                         # Update the virtual object
@@ -124,18 +129,37 @@ class VisionBasedDT:
                                             # Pushed forwards
                                             self.anomaly_log_messages.append((f"Conveyor {virtual_object.get_state().id}", "Either anomaly 2 or 4 has occured"))
 
-                            elif return_object.state.origin == "Storage":
+                                    elif update_category == "has_been_observed":
+                                        virtual_object.has_been_observed_on_conveyor = True
+
+                                    elif update_category == "Anomaly_3":
+                                        print(f"DT: {virtual_object.shape} {virtual_object.color}")
+                                        virtual_object.set_state(f"Conveyor_{return_object.updates[update_category].id}")
+                                        virtual_object.set_progress(return_object.updates[update_category].progress)
+
+                                    elif update_category == "missing":
+                                        virtual_object.missing_counter += 1
+
+                            elif location == "Storage":
                                 for update_category in return_object.updates:
                                     if update_category == "Updated_State":
-                                        origin = {return_object[update_category].origin}
-                                        storage_id = {return_object[update_category].id}
-                                        state_key = f"{origin}_{storage_id}"
+                                        origin = return_object.updates[update_category].origin
+                                        robot_id = return_object.updates[update_category].id
+                                        opposite_robot_id = 0 if robot_id else 1
+                                        state_key = f"{origin}_{robot_id}"
+
+                                        if virtual_object.state.origin == "Robot" and virtual_object.state.id == robot_id:
+                                            self.anomaly_log_messages.append((f"Storage {robot_id}", configuration["Anomalies"][12], (virtual_object.shape, virtual_object.color)))
+                                        else:
+                                            self.anomaly_log_messages.append((f"Storage {robot_id}", configuration["Anomalies"][8], (virtual_object.shape, virtual_object.color)))
+
+                                            # Anomaly 8 Mitigation Plan
+                                            self.virtual_robots[robot_id].add_to_queue(configuration["Anomaly8Priority"], virtual_object)
+                                            new_rule = {(virtual_object.shape, virtual_object.color): "Storage"}
+                                            self.virtual_robots[opposite_robot_id].set_rules(new_rule)
+                                            self.virtual_robots[opposite_robot_id].storage.remove_object(virtual_object.shape, virtual_object.color)
 
                                         virtual_object.state = ObjectStates[state_key]
-
-                                        self.anomaly_log_messages.append((f"Storage {robot_id}", configuration["Anomalies"][8]))
-
-                                        # MITIGATION PLAN
 
             elif event_type == "Anomaly 13":
                 robot_id, shape, color = event_param
@@ -256,8 +280,12 @@ class VisionBasedDT:
         anomaly_logs = []
 
         for log_message in self.anomaly_log_messages:
-            actor, anomaly_text = log_message
-            anomaly_logs.append((self._current_time(), actor, anomaly_text))
+            if len(log_message) == 2:
+                actor, anomaly_text = log_message
+                anomaly_logs.append((self._current_time(), actor, anomaly_text))
+            elif len(log_message) == 3:
+                actor, anomaly_text, extra_info = log_message
+                anomaly_logs.append((self._current_time(), actor, anomaly_text, extra_info))
 
         for robot in self.virtual_robots:
             info, robot_anomaly_logs = robot.get_info()

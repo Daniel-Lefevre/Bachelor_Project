@@ -27,6 +27,7 @@ class VirtualObject:
         self.ir_hit_progress = None
         self.has_been_observed_on_conveyor = False
         self.time_buffer = 2.5  # seconds
+        self.missing_counter = 0
 
     # PUBLIC METHODS
 
@@ -94,20 +95,9 @@ class VirtualObject:
 
             self.ir_hit_progress = None
 
-        # if the object has not reached an IR sensor and is arriving late then a larger group of anomalies has occured
-        elif self.current_state_progress_goal - self.current_state_progress < -self.time_buffer:
-            if self.time_object_went_missing is None:
-                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 1, 4, 5, 10, 11 or 12 has occured"))
-                self.time_object_went_missing = self.current_state_progress
-
-            # if more than 10 seconds has gone by without the object arriving at the IR sensor then cast anomaly that shuts down the system
-            elif self.time_object_went_missing - self.current_state_progress < -10.0:
-                print(f"Mitigation failed: {self.shape} {self.color}. Progress: {self.current_state_progress}/{self.current_state_progress_goal}")
-                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Mitigation for anomaly 1, 4, 5, 10, 11 or 12 has failed"))
-                self.time_object_went_missing = None
-
         # if the virtual object has been placed on a conveyor then update the object
         elif placed_position == "Conveyor":
+            self.missing_counter = 0
             opposite_id = int(not self.state.id)
             self.state = self.states[f"Conveyor_{opposite_id}"]
             self.current_state_progress_goal = self.state.time

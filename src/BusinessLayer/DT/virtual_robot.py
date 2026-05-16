@@ -32,6 +32,8 @@ class VirtualRobot:
         self.next_destination = None
         self.anomaly_logs = []
         self.has_exited_anoamly_6 = True
+        self.storage_pickup_confirmation = "Waiting"
+        self.has_attempted_anomaly_12_mitigation = False
 
     # Handles the transition between states of the virtual robot arm
     def _state_transition(self, objec_at_drop_off: bool) -> tuple[bool, str | None]:
@@ -39,14 +41,20 @@ class VirtualRobot:
         placed_position = None
         dropping_object = False
 
+        if self.state.key == "Observation_to_Storage_Observation":
+            self.state = self.states["Storage_Observation_to_Storage"]
+
         # In this state the robot picks up an object and therefore sets the flag and removes it from storage
-        if self.state.key == "Observation_to_Pickup_Storage":
-            self.state = self.states["Storage_to_Standby"]
+        elif self.state.key == "Storage_Observation_to_Storage":
+            self.state = self.states["Storage_to_Storage_Observation"]
             self.storage.remove_object(self.working_object.shape, self.working_object.color)
             picked_up = True
 
+        elif self.state.key == "Storage_to_Storage_Observation":
+            self.state = self.states["Storage_Observation"]
+
         #
-        elif self.state.key in ["Storage_to_Standby", "Observation_to_Standby"]:
+        elif self.state.key in ["Storage_Observation_to_Standby", "Observation_to_Standby"]:
             if objec_at_drop_off:
                 if self.has_exited_anoamly_6:
                     self.anomaly_logs.append((f"Robot {self.id}", configuration["Anomalies"][6]))
@@ -92,6 +100,9 @@ class VirtualRobot:
 
         return (picked_up, placed_position, dropping_object)
 
+    def set_storage_pickup_confirmation(self, value: str) -> None:
+        self.storage_pickup_confirmation = value
+
     def get_conveyor_info(self) -> bool:
         return self.conveyor.get_info()
 
@@ -125,9 +136,6 @@ class VirtualRobot:
             raise Exception(f"Unknown anomaly: {anomaly}")
 
     def step(self, objec_at_drop_off: bool, object_at_ir: bool) -> tuple[VirtualObject | None, str | None, bool | None] | None:
-        # if self.id == 1:
-        #     print("---------------")
-
         # If in setup dont do anything
         if self.state.key == "Setup":
             return None
@@ -137,10 +145,29 @@ class VirtualRobot:
             if self.working_object.state.origin == "IR":
                 self.state = self.states["Observation_to_Workspace_Observation"]
             else:
-                self.state = self.states["Observation_to_Pickup_Storage"]
+                self.state = self.states["Observation_to_Storage_Observation"]
 
             self.current_state_progress_goal = self.state.time
             self.current_state_progress = 0
+
+        if self.state.key == "Storage_Observation":
+            # When confirmed
+            if self.storage_pickup_confirmation == "Success":
+                self.has_attempted_anomaly_12_mitigation = False
+                self.state = self.states["Storage_Observation_to_Standby"]
+                self.current_state_progress = 0
+                self.current_state_progress_goal = self.state.time
+                self.storage_pickup_confirmation = "Waiting"
+
+            elif self.storage_pickup_confirmation == "Failure":
+                if not self.has_attempted_anomaly_12_mitigation:
+                    self.state = self.states["Storage_Observation_to_Storage"]
+                    self.current_state_progress = 0
+                    self.has_attempted_anomaly_12_mitigation = True
+                    self.current_state_progress_goal = self.state.time
+                    self.storage_pickup_confirmation = "Waiting"
+                else:
+                    self.anomaly_logs.append((f"Robot {self.id}", "Anomaly 12 Mitigation failed"))
 
         dropping_object = False
 

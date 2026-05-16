@@ -94,10 +94,10 @@ class GUI:
         # no_dt_button = ctk.CTkButton(dt_frame, fg_color=self.bg_color, hover_color=self.border_color, text="No DT", command=lambda: self.system.stop_system(), width=120, height=35)
         # no_dt_button.pack(pady=(10, 10))
 
-        ctk.CTkLabel(dt_frame, text="Turn on/off system", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 0))
+        ctk.CTkLabel(dt_frame, text="Turn off system", font=("Arial", 16, "bold"), fg_color="transparent", text_color=self.title_color).pack(pady=(10, 0))
 
-        start_button = ctk.CTkButton(dt_frame, fg_color="green", hover_color=self.border_color, text="Vision based DT", command=lambda: self.system.stop_system(), width=120, height=35)
-        start_button.pack(pady=(10, 10))
+        # start_button = ctk.CTkButton(dt_frame, fg_color="green", hover_color=self.border_color, text="Vision based DT", command=lambda: self.system.stop_system(), width=120, height=35)
+        # start_button.pack(pady=(10, 10))
 
         exit_button = ctk.CTkButton(dt_frame, fg_color="#880015", hover_color=self.border_color, text="Shut down system", command=lambda: self.system.stop_system(), width=120, height=35)
         exit_button.pack(pady=(10, 10))
@@ -125,12 +125,12 @@ class GUI:
         return Image.merge("RGBA", (ImageOps.invert(r), ImageOps.invert(g), ImageOps.invert(b), a))
 
     # Create the stack for on of the storages or in transit
+    # Create the stack for one of the storages or in transit
     def _create_stack(self, parent, title, color):
         stack_frame = ctk.CTkFrame(parent, fg_color=color, corner_radius=10)
         stack_frame.pack_propagate(False)
 
-        # Convert the titles from underscore tol space
-        new_title = ""
+        # Convert the titles from underscore to space
         if title == "In_Transit":
             new_title = "In Transit"
         else:
@@ -138,12 +138,17 @@ class GUI:
 
         ctk.CTkLabel(stack_frame, text=new_title, font=("Arial", 16, "bold"), fg_color=color, text_color=self.title_color).pack(pady=(10, 10))
 
-        # Add a container for the object buttons
-        stack_frame.object_container = ctk.CTkFrame(stack_frame, fg_color="transparent")
+        # Make ONLY In Transit scrollable
+        if title == "In_Transit":
+            stack_frame.object_container = ctk.CTkScrollableFrame(stack_frame, fg_color="transparent")
+        else:
+            stack_frame.object_container = ctk.CTkFrame(stack_frame, fg_color="transparent")
+
         stack_frame.object_container.pack(fill="both", expand=True, padx=5, pady=(0, 10))
 
-        # This fills in the objects in the stack
+        # Fill in objects
         self._populate_stack(stack_frame, title)
+
         return stack_frame
 
     # This fills in the objects in the stack
@@ -187,23 +192,33 @@ class GUI:
 
     # Add log message to the log terminal
     def _add_log(self, anomaly_log_object):
-        time, actor, anomaly_text = anomaly_log_object
+        if len(anomaly_log_object) == 3:
+            time, actor, anomaly_text = anomaly_log_object
+        elif len(anomaly_log_object) == 4:
+            time, actor, anomaly_text, _ = anomaly_log_object
+
         if actor == 1 or actor == 0:
             actor = f"Robot {actor}"
+
         text = f"[{time}] {actor} - {anomaly_text}"
 
-        # Create the label inside the scrollable frame
-        label = ctk.CTkLabel(self.log_frame, text=text, anchor="w", justify="left", text_color=self.text_color)
-        label.pack(fill="x", padx=10, pady=2)
-
-        # Wrap text based on the width of the scrollable area
-        # Note: Using 30-40 offset to account for the scrollbar width
         self.log_frame.update_idletasks()
-        label.configure(wraplength=self.log_frame.winfo_width() - 40)
 
-        children = self.log_frame.winfo_children()
-        if len(children) > 100:  # Keep last 100 logs
-            children[0].destroy()
+        label = ctk.CTkLabel(
+            self.log_frame,
+            text=text,
+            text_color=self.text_color,
+            justify="left",
+            anchor="w",
+            wraplength=400,  # IMPORTANT: fixed width
+        )
+
+        label.pack(
+            fill="x",
+            padx=10,
+            pady=5,
+            anchor="w",
+        )
 
     # Update the storage objects based on information from system
     def _update_storage_objects(self):

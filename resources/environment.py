@@ -16,10 +16,11 @@ configuration = {
     # IP's of the niryo ned2 robots
     "ips": ["169.254.200.200", "169.254.200.201"],
     # Order of execution for the robot arms
-    "NumberOfPriorities": 3,
-    "PickFromStoragePriority": 3,
-    "Anomaly8Priority": 2,
-    "PickFromIRSensorPriority": 1,
+    "NumberOfPriorities": 5,
+    "PickFromStoragePriority": 4,
+    "Anomaly8Priority": 3,
+    "PickFromIRSensorPriority": 2,
+    "ImportantAnomalyMitigation": 1,
     # Overview of equipment in the experimental setup
     "NumberOfRobotArms": 2,
     # Dictionary over anomalies
@@ -85,8 +86,8 @@ configuration = {
         # VISION BASED DT TIMES
         "Conveyor_0": 8.5,
         "Conveyor_1": 8.5,
-        "Robot_0_Observation_to_Pickup_Storage": 8.87,
-        "Robot_1_Observation_to_Pickup_Storage": 8.81,
+        "Robot_0_Observation_to_Storage_Observation": 4.86,  # THIS ONE
+        "Robot_1_Observation_to_Storage_Observation": 5.19,  # THIS ONE
         "Robot_0_Workspace_Observation_to_Pickup_Conveyor": 4.13,
         "Robot_1_Workspace_Observation_to_Pickup_Conveyor": 4.28,
         "Robot_0_Pickup_Conveyor_to_Observation": 6.38,
@@ -97,14 +98,18 @@ configuration = {
         "Robot_1_Observation_to_Place_Storage": 3.23,
         "Robot_0_Standby_to_Place_Conveyor": 1.64,
         "Robot_1_Standby_to_Place_Conveyor": 2.58,
-        "Robot_0_Storage_to_Standby": 8.08,
-        "Robot_1_Storage_to_Standby": 6.36,
+        "Robot_0_Storage_Observation_to_Standby": 5.25,  # THIS ONE
+        "Robot_1_Storage_Observation_to_Standby": 5.17,  # THIS ONE
         "Robot_0_Place_Storage_to_Observation": 3.84,
         "Robot_1_Place_Storage_to_Observation": 3.46,
         "Robot_0_Place_Conveyor_to_Observation": 2.93,
         "Robot_1_Place_Conveyor_to_Observation": 3.40,
         "Robot_0_Observation_to_Workspace_Observation": 2.09,
         "Robot_1_Observation_to_Workspace_Observation": 1.69,
+        "Robot_0_Storage_Observation_to_Storage": 4.65,  # This one
+        "Robot_1_Storage_Observation_to_Storage": 3.95,  # This one
+        "Robot_0_Storage_to_Storage_Observation": 5.54,  # This one
+        "Robot_1_Storage_to_Storage_Observation": 5.6,  # This one
     },
     "storagePositions": [
         [

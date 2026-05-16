@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from resources.environment import configuration
 from src.BusinessLayer.DT.States import ObjectStates
 from src.BusinessLayer.DT.VisionBasedDT.conveyor_vision_module import ConveyorVisionModule
 from src.BusinessLayer.DT.VisionBasedDT.storage_vision_module import StorageVisionModule
@@ -34,6 +35,9 @@ class DTRunner:
         self.latest_ir_readings = (False, False)
         self.unknow_object = None
         self.has_logged_unknow = False
+        self.storage_pickup_confirmation = "Waiting"
+        self.storage_pickup_confirmation_id = None
+        self.anomalies = []
 
     # Private Functions
 
@@ -59,18 +63,23 @@ class DTRunner:
                 return_objects = []
 
                 if location == "Conveyors":
-                    # Heavy processing
-                    unknown_object, return_objects = self.conveyor_vision_module.compare_image_with_DT(image, robot_id, state_snapshot)
+                    unknown_object, return_objects, anomalies = self.conveyor_vision_module.compare_image_with_DT(image, robot_id, state_snapshot)
 
                 elif location == "Storage":
-                    unknown_object, return_objects = self.storage_vision_module.compare_image_with_DT(image, robot_id, state_snapshot)
+                    unknown_object, return_objects, self.storage_pickup_confirmation, anomalies = self.storage_vision_module.compare_image_with_DT(image, robot_id, state_snapshot)
+                    self.storage_pickup_confirmation_id = robot_id
+                    event = ("Storage_Pickup_Confirmation", (self.storage_pickup_confirmation, self.storage_pickup_confirmation_id))
+                    with self.dt_lock:
+                        self.dt_model.create_event(event)
 
-                self._update_state_snapshots(return_objects, location)
+                self.anomalies = self.anomalies + anomalies
+
+                self._update_state_snapshots(return_objects)
 
                 if unknown_object is not None:
                     self.unknow_object = unknown_object
 
-                event = ("Update_DT", return_objects)
+                event = ("Update_DT", (return_objects, location))
 
                 # Update DT INSIDE lock
                 with self.dt_lock:
@@ -79,7 +88,7 @@ class DTRunner:
             except queue.Empty:
                 continue
 
-    def _update_state_snapshots(self, return_objects: list, location: str) -> None:
+    def _update_state_snapshots(self, return_objects: list) -> None:
         temp_list = []
 
         while not self.image_queue.empty():
@@ -92,10 +101,20 @@ class DTRunner:
                     if virtual_object.color == return_object.color and virtual_object.shape == return_object.shape:
                         # Correct all updates in dictionary from the vision module to the DT
 
-                        if location == "Conveyor":
+                        if location == "Conveyors":
                             for update_category in return_object.updates:
                                 if update_category == "error_correction":
-                                    virtual_object.progress += return_object[update_category]
+                                    virtual_object.progress += return_object.updates[update_category]
+
+                                if update_category == "has_been_observed":
+                                    virtual_object.has_been_observed_on_conveyor = True
+
+                                if update_category == "Anomaly_3":
+                                    virtual_object.state = ObjectStates[f"Conveyor_{return_object.updates[update_category].id}"]
+                                    virtual_object.progress = return_object.updates[update_category].progress
+
+                                if update_category == "missing":
+                                    virtual_object.missing_counter += 1
 
                         elif location == "Storage":
                             for update_category in return_object.updates:
@@ -106,7 +125,14 @@ class DTRunner:
 
                                     virtual_object.state = ObjectStates[state_key]
 
-            temp_list.append((image, robot_id, state_snapshot))
+                                if update_category == "Anomaly_12":
+                                    origin = {return_object[update_category].origin}
+                                    storage_id = {return_object[update_category].id}
+                                    state_key = f"{origin}_{storage_id}"
+
+                                    virtual_object.state = ObjectStates[state_key]
+
+            temp_list.append((image, metadata, state_snapshot))
 
         for item in temp_list:
             self.image_queue.put(item)
@@ -154,11 +180,28 @@ class DTRunner:
         if self.unknow_object is not None and not self.has_logged_unknow:
             current_time = datetime.now().strftime("%H:%M")
             if self.unknow_object["Location"] == "Conveyors":
-                info[1].append((current_time, f"Conveyor {self.unknow_object['Conveyor']}", "Anomaly 14"))
+                info[1].append((current_time, f"Conveyor {self.unknow_object['Conveyor']}", configuration["Anomalies"][14]))
             elif self.unknow_object["Location"] == "Storage":
-                info[1].append((current_time, f"Storage {self.unknow_object['Storage']}", "Anomaly 15"))
+                info[1].append((current_time, f"Storage {self.unknow_object['Storage']}", configuration["Anomalies"][15]))
             self.has_logged_unknow = True
 
-        # print(info[1])
+        for anomaly, param in self.anomalies:
+            current_time = datetime.now().strftime("%H:%M")
+            if anomaly in [configuration["Anomalies"][5], "Either Anomaly 5, 10 or 11 has occured"]:
+                identification = param
+                info[1].append((current_time, f"Conveyor {identification}", anomaly))
 
-        return info
+            elif anomaly in [configuration["Anomalies"][9]]:
+                identification = param
+                info[1].append((current_time, f"Storage {identification}", anomaly))
+
+            elif anomaly in [configuration["Anomalies"][3]]:
+                shape, color, identification = param
+                info[1].append((current_time, f"Conveyor {identification}", anomaly, (shape, color, identification)))
+
+        new_info = (info[0], info[1], (self.storage_pickup_confirmation, self.storage_pickup_confirmation_id))
+        self.storage_pickup_confirmation = "Waiting"
+        self.anomalies = []
+        self.storage_pickup_confirmation_id = None
+
+        return new_info

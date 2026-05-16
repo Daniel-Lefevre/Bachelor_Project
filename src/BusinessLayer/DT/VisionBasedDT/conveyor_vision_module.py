@@ -14,6 +14,8 @@ from torchvision import transforms
 from torchvision.models import resnet18
 from ultralytics import YOLO
 
+from resources.environment import configuration
+
 
 class ConveyorVisionModule:
     def __init__(self):
@@ -31,6 +33,22 @@ class ConveyorVisionModule:
         self.classification_module = self._load_resnet(classification_weights)
 
         self.unknown_object = None
+
+        self.min_progress_threshold = 0.35
+        self.max_progress_progress_threshold = 0.65
+        self.anomaly_3_last_times = {
+            (ObjectShape.CIRCLE, ObjectColor.GREEN): 0,
+            (ObjectShape.CIRCLE, ObjectColor.BLUE): 0,
+            (ObjectShape.CIRCLE, ObjectColor.RED): 0,
+            (ObjectShape.SQUARE, ObjectColor.GREEN): 0,
+            (ObjectShape.SQUARE, ObjectColor.BLUE): 0,
+            (ObjectShape.SQUARE, ObjectColor.RED): 0,
+        }
+
+        self.anoamly_14_last_times = {
+            0: 0,
+            1: 0,
+        }
 
     #
     # Private functions
@@ -86,6 +104,7 @@ class ConveyorVisionModule:
                     x_higher = max_x
 
                 cropped_img = image[y_lower:y_higher, x_lower:x_higher]
+
                 cropped_images_and_centers.append((cropped_img, ((x2 - x1) / 2 + x1, (y2 - y1) / 2 + y1)))
 
         return cropped_images_and_centers
@@ -214,6 +233,7 @@ class ConveyorVisionModule:
     def compare_image_with_DT(self, image: np.ndarray, robot_id: int, state_snapshot: SimpleNamespace) -> tuple[list[SimpleNamespace], list[SimpleNamespace]]:
         virtual_objects = state_snapshot.objects
         virtual_robots = state_snapshot.robots
+        anomalies = []
 
         opposite_id = 0 if robot_id == 1 else 1
         opposite_robot_state_key = virtual_robots[opposite_id].state.key
@@ -221,7 +241,7 @@ class ConveyorVisionModule:
 
         for object_appearance, conveyor_id, progress in classified_objects_and_progress:
             # Ignore buttom of the image when the robot is moving an object since the object is the visible
-            if virtual_robots[robot_id].state != "Observation" and (
+            if virtual_robots[robot_id].state.key != "Observation" and (
                 (conveyor_id == 0 and robot_id == 0 and progress > 0.89)
                 or (conveyor_id == 0 and robot_id == 1 and progress < 0.165)
                 or (conveyor_id == 1 and robot_id == 0 and progress < 0.175)
@@ -231,22 +251,12 @@ class ConveyorVisionModule:
 
             # Check for unknows
             if object_appearance == "Unknown":
-                if progress < 0.1 or progress > 0.94:
+                if progress < 0.15 or progress > 0.9:
                     continue
                 else:
-                    self.unknown_object = {"Conveyor": conveyor_id, "Progress": progress}
-
-                    folder_path = os.path.join(self.current_dir, "unknown_images")
-                    if not os.path.exists(folder_path):
-                        os.makedirs(folder_path)
-
-                    # 2. Define the filename
-                    # We use a timestamp or unique values to prevent overwriting
-
-                    timestamp = int(time.time())
-                    filename = f"unknown_R{robot_id}_C{conveyor_id}_P{progress:.2f}_{timestamp}.jpg"
-                    save_file_path = os.path.join(folder_path, filename)
-                    cv2.imwrite(save_file_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+                    if time.time() - self.anoamly_14_last_times[conveyor_id] < 15:
+                        self.unknown_object = {"Location": "Conveyors", "Conveyor": conveyor_id, "Progress": progress}
+                    self.anoamly_14_last_times[conveyor_id] = time.time()
 
                 print(f"Robot {robot_id}: Unknown Object on conveyor {conveyor_id} with progress {progress}")
 
@@ -255,29 +265,48 @@ class ConveyorVisionModule:
         return_objects = []
 
         # Loop through the objects in the image and compare with the state of the DT
-        for image_object in classified_objects_and_progress:
-            (image_object_shape, image_object_color), image_object_conveyor_id, image_object_progress = image_object
-
-            for virtual_object in virtual_objects:
+        for virtual_object in virtual_objects:
+            update_object_dict = {}
+            object_is_in_image = False
+            for image_object in classified_objects_and_progress:
+                (image_object_shape, image_object_color), image_object_conveyor_id, image_object_progress = image_object
                 if virtual_object.shape == image_object_shape and virtual_object.color == image_object_color:
-                    update_object_dict = {}
+                    object_is_in_image = True
+
+                if virtual_object.shape == image_object_shape and virtual_object.color == image_object_color:
+                    update_object_dict["has_been_observed"] = True
                     # Check if object is on the correct conveyor
-                    if virtual_object.state.id == image_object_conveyor_id:
+                    if virtual_object.state.id == image_object_conveyor_id and virtual_object.state.key == "Conveyor":
                         error = virtual_object.progress - image_object_progress
                         error_threshold = 0.35
 
                         if abs(error) > error_threshold:
                             update_object_dict["error_correction"] = -error
 
-                    # Objects was not on the correct conveyor
+                    # Objects on conveyor should not be on this conveyor
+                    elif image_object_progress >= 0.2 and image_object_progress <= 0.8 and virtual_object.state.origin != "Conveyor":
+                        if time.time() - self.anomaly_3_last_times[(virtual_object.shape, virtual_object.color)] < 15:
+                            anomalies.append((configuration["Anomalies"][3], (virtual_object.shape, virtual_object.color, virtual_object.state.id)))
+                            update_object_dict["Anomaly_3"] = SimpleNamespace(id=image_object_conveyor_id, progress=image_object_progress)
+
+                        self.anomaly_3_last_times[(virtual_object.shape, virtual_object.color)] = time.time()
+
+            if virtual_object.state.origin == "Conveyor" and not object_is_in_image and virtual_object.progress >= self.min_progress_threshold and virtual_object.progress <= self.max_progress_progress_threshold:
+                update_object_dict["missing"] = True
+
+                if virtual_object.missing_counter == 2:
+                    # Anomaly 5
+                    if virtual_object.has_been_observed_on_conveyor:
+                        anomalies.append((configuration["Anomalies"][5], virtual_object.state.id))
+
+                    # Either ANomaly 5, 10 or 11
                     else:
-                        continue
-                        update_object_dict[""] = image_object_conveyor_id
+                        anomalies.append(("Either Anomaly 5, 10 or 11 has occured", virtual_object.state.id))
 
-                    return_object = SimpleNamespace(color=virtual_object.color, shape=virtual_object.shape, updates=update_object_dict)
-                    return_objects.append(return_object)
+            return_object = SimpleNamespace(color=virtual_object.color, shape=virtual_object.shape, updates=update_object_dict)
+            return_objects.append(return_object)
 
-        return (self.unknown_object, return_objects)
+        return (self.unknown_object, return_objects, anomalies)
 
 
 # Progress cutoff values

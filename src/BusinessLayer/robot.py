@@ -50,6 +50,8 @@ class RobotArm:
         self.ready_to_drop = False
         self.conveyor_is_running = True
         self.stop_event = stop_event
+        self.storage_pickup_confirmation = "Waiting"
+        self.is_in_observation = False
 
     def get_ir(self) -> bool:
         return self.IR
@@ -92,9 +94,12 @@ class RobotArm:
     def drop_object(self) -> None:
         self.ready_to_drop = True
 
+    def set_storage_pickup_confirmation(self, storage_pickup_confirmation: str):
+        self.storage_pickup_confirmation = storage_pickup_confirmation
+
     def get_latest_image(self) -> np.ndarray | None:
         image = copy.deepcopy(self.latest_image)
-        metadata = copy.copy(self.latest_image_metadata)
+        metadata = copy.deepcopy(self.latest_image_metadata)
         self.latest_image_metadata = None
         self.latest_image = None
         return (image, metadata)
@@ -137,7 +142,8 @@ class RobotArm:
         self.robot.stop_conveyor(self.conveyor_id)
 
     def _move_to_standby_position(self) -> None:
-        self.robot.move_pose(self.standby_position)
+        if not self.stop_event.is_set():
+            self.robot.move_pose(self.standby_position)
 
     def _inverse_workspacepose(self, workspace_name: str, target_pose: PoseObject) -> PoseObject:
         workspace = np.array(configuration[workspace_name])
@@ -167,8 +173,8 @@ class RobotArm:
                 target_pose.y -= 0.008
             elif self.ID == 1:
                 target_pose.x += 0.020
-                target_pose.y += 0
-                target_pose.z -= 0.005
+                target_pose.y -= 0.005
+                target_pose.z -= 0.01
         elif workspace == self.conveyor_workspace:
             if self.ID == 0:
                 target_pose.x += 0.0115
@@ -235,7 +241,29 @@ class RobotArm:
 
             if corrected_target_pose:
                 self.robot.pick_from_pose(corrected_target_pose)
-                self._pick_and_place(destination, final_destination, shape_ret, color_ret, workspace)
+
+                if workspace == self.storage_workspace:
+                    self._move_to_observation_position_storage()
+                    while self.storage_pickup_confirmation == "Waiting" and not self.stop_event.is_set():
+                        time.sleep(0.1)
+
+                    if self.storage_pickup_confirmation == "Success":
+                        self.storage_pickup_confirmation = "Waiting"
+                        self._pick_and_place(destination, final_destination, shape_ret, color_ret, workspace)
+
+                    elif self.storage_pickup_confirmation == "Failure":
+                        self.storage_pickup_confirmation = "Waiting"
+                        self.robot.pick_from_pose(corrected_target_pose)
+                        self._move_to_observation_position_storage()
+
+                        while self.storage_pickup_confirmation == "Waiting" and not self.stop_event.is_set():
+                            time.sleep(0.1)
+
+                        if self.storage_pickup_confirmation == "Success":
+                            self.storage_pickup_confirmation = "Waiting"
+                            self._pick_and_place(destination, final_destination, shape_ret, color_ret, workspace)
+                else:
+                    self._pick_and_place(destination, final_destination, shape_ret, color_ret, workspace)
 
     def _check_ir(self) -> bool:
         all_pins = self.robot.get_digital_io_state()
@@ -247,7 +275,7 @@ class RobotArm:
             return
         with self.lock:
             if self.queue.empty():
-                if self.latest_image is None:
+                if self.latest_image is None and self.is_in_observation:
                     self._take_image("Conveyors")
                 if not self._check_ir():
                     if not self.conveyor_is_running:
@@ -255,6 +283,7 @@ class RobotArm:
                 else:
                     self.add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", ObjectShape.ANY, ObjectColor.ANY)
             else:
+                self.is_in_observation = False
                 self._stop_conveyorbelt()
                 time.sleep(0.5)
                 workarea, shape, color = self.queue.get()
@@ -320,25 +349,29 @@ class RobotArm:
         if self.storage_workspace not in self.robot.get_workspace_list():
             self.robot.save_workspace_from_robot_poses(self.storage_workspace, *configuration[self.storage_workspace])
 
+        self.is_in_observation = True
         time.sleep(1)
 
     def _move_to_observation_position(self) -> None:
-        self.robot.move_pose(*self.observation_pose)
-        time.sleep(0.5)
-        self._take_image("Conveyors")
+        if not self.stop_event.is_set():
+            self.robot.move_pose(*self.observation_pose)
+            time.sleep(0.5)
+            self._take_image("Conveyors")
 
     def _move_to_observation_position_storage(self) -> None:
-        self.robot.move_pose(*self.observation_pose_storage)
-        time.sleep(0.5)
-        self._set_camera_settings("Storage")
-        self._take_image("System")
+        if not self.stop_event.is_set():
+            self.robot.move_pose(*self.observation_pose_storage)
+            time.sleep(0.5)
+            self._set_camera_settings("Storage")
+            self._take_image("Storage")
 
     def _move_to_observation_position_conveyor(self) -> None:
-        self.robot.move_pose(*self.observation_pose_conveyor)
-        self._set_camera_settings("Conveyor")
+        if not self.stop_event.is_set():
+            self.robot.move_pose(*self.observation_pose_conveyor)
+            self._set_camera_settings("Conveyor")
 
     def _place_and_release(self, destination: list[float]) -> None:
-        if destination == self.place_conveyor:
+        if destination == self.place_conveyor and not self.stop_event.is_set():
             self._move_to_standby_position()
             start_time = time.time()
 
@@ -358,6 +391,9 @@ class RobotArm:
             self._release_with_tool()
 
     def _pick_and_place(self, destination: list[float], final_destination: bool, shape: ObjectShape, color: ObjectColor, workspace: str) -> None:
+        if self.stop_event.is_set():
+            return
+
         if workspace == self.conveyor_workspace:
             self._move_to_observation_position_conveyor()
 
@@ -387,6 +423,7 @@ class RobotArm:
             self.object_updates.append((shape, color, f"Storage_{self.ID}"))
 
         self._move_to_observation_position()
+        self.is_in_observation = True
 
     def disconnect(self) -> None:
         self._stop_conveyorbelt()

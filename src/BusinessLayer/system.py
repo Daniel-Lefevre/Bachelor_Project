@@ -71,6 +71,8 @@ class System:
             for i in range(len(self.storage_objects)):
                 obj = self.storage_objects[i]
                 if obj.shape == shape and obj.color == color:
+                    if position == "IR_0" or position == "IR_1":
+                        position = "In_Transit"
                     self.storage_objects[i].position = position
                     return
 
@@ -138,7 +140,7 @@ class System:
         self.DT.set_rules([{(shape, color): "Storage"}, None]) if robot_id_arrival else self.DT.set_rules([None, {(shape, color): "Storage"}])
 
     # Create rules for the robotarms to mitigat anomaly 3
-    def _anomaly_3_mitigation(self, robot_id_arrival: int, shape: ObjectShape, color: ObjectColor) -> None:
+    def _anomaly_3_mitigation(self, robot_id_arrival: int, shape: ObjectShape, color: ObjectColor, add_to_queue: bool = True) -> None:
         goal_storage_id = None
         for storage_object in self.storage_objects:
             if storage_object.shape == shape and storage_object.color == color:
@@ -154,8 +156,9 @@ class System:
             self.robot_arms[robot_id_arrival].set_rules({(shape, color): "Storage"})
             self.DT.set_rules([None, {(shape, color): "Storage"}]) if robot_id_arrival else self.DT.set_rules([{(shape, color): "Storage"}, None])
 
-            self.robot_arms[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", shape, color)
-            self.robot_arms[robot_id_arrival].set_mitigation_mode(False)
+            if add_to_queue:
+                self.robot_arms[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", shape, color)
+                self.robot_arms[robot_id_arrival].set_mitigation_mode(False)
         else:
             self.robot_arms[robot_id_arrival].set_rules({(shape, color): "Conveyor"})
             self.DT.set_rules([None, {(shape, color): "Conveyor"}]) if robot_id_arrival else self.DT.set_rules([{(shape, color): "Conveyor"}, None])
@@ -163,8 +166,15 @@ class System:
             self.robot_arms[int(not robot_id_arrival)].set_rules({(shape, color): "Storage"})
             self.DT.set_rules([{(shape, color): "Storage"}, None]) if robot_id_arrival else self.DT.set_rules([None, {(shape, color): "Storage"}])
 
-            self.robot_arms[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", shape, color)
-            self.robot_arms[robot_id_arrival].set_mitigation_mode(False)
+            if add_to_queue:
+                self.robot_arms[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", shape, color)
+                self.robot_arms[robot_id_arrival].set_mitigation_mode(False)
+
+    def _anomaly_8_mitigation(self, storage_id: int, shape: ObjectShape, color: ObjectColor) -> None:
+        opposite_id = 0 if storage_id else 1
+        self.robot_arms[opposite_id].remove_object_from_storage(shape, color)
+        self.robot_arms[storage_id].add_to_queue(configuration["Anomaly8Priority"], "Storage", shape, color)
+        self.robot_arms[opposite_id].set_rules({(shape, color): "Storage"})
 
     # Listens to the IR sensor, if the IR just switched from false to true, then create an event in the DT
     def _ir_listener(self) -> None:
@@ -258,7 +268,7 @@ class System:
 
     # Retrive info from the DT
     # If anoamly that cannot be mitigated has occured then stop system
-    def get_info_dt(self) -> dict[list, list, list]:
+    def get_info_dt(self):
         info = self.DT.get_info_dt()
 
         for robot_id in info[0]["robots dropping object"]:
@@ -266,7 +276,30 @@ class System:
 
         for anomaly_log_object in info[1]:
             print(f"{anomaly_log_object[2]}")
-            if anomaly_log_object[2] in ["Anomaly 13 Mitigation failed", "Mitigation for anomaly 1, 4, 5, 10, 11 or 12 has failed", "Anomaly 9: Missing object in storage", "Anomaly 14"]:
+            if anomaly_log_object[2] in [
+                "Anomaly 12 Mitigation failed",
+                "Anomaly 13 Mitigation failed",
+                configuration["Anomalies"][9],
+                configuration["Anomalies"][14],
+                configuration["Anomalies"][15],
+                configuration["Anomalies"][5],
+                "Either Anomaly 5, 10 or 11 has occured",
+            ]:
                 self.stop_system()
 
-        return info
+            elif anomaly_log_object[2] in [configuration["Anomalies"][8]]:
+                storage_id = int(anomaly_log_object[1][-1])
+                shape, color = anomaly_log_object[3]
+                self._anomaly_8_mitigation(storage_id, shape, color)
+
+            elif anomaly_log_object[2] in [configuration["Anomalies"][3]]:
+                if len(anomaly_log_object) == 4:
+                    shape, color, robot_id = anomaly_log_object[3]
+                    self._anomaly_3_mitigation(robot_id, shape, color, False)
+
+        storage_pickup_confirmation, robot_id = info[2]
+        if storage_pickup_confirmation != "Waiting":
+            self.robot_arms[robot_id].set_storage_pickup_confirmation(storage_pickup_confirmation)
+
+        info_without_flags = (info[0], info[1])
+        return info_without_flags
