@@ -130,7 +130,7 @@ class TimeBasedDT:
             if return_obj is None:
                 return
 
-            working_object, picked_up, placed_position, dropping_object = return_obj
+            working_object, picked_up, placed_position, dropping_object, _ = return_obj
             if dropping_object:
                 self.robots_dropping_objects.append(robot_id)
             if picked_up or placed_position is not None:

@@ -170,28 +170,11 @@ class System:
                 self.robot_arms[robot_id_arrival].add_to_queue(configuration["PickFromIRSensorPriority"], "Conveyor", shape, color)
                 self.robot_arms[robot_id_arrival].set_mitigation_mode(False)
 
-    def _anomaly_8_mitigation(self, storage_id: int, shape: ObjectShape, color: ObjectColor) -> None:
-        opposite_id = 0 if storage_id else 1
-        self.robot_arms[opposite_id].remove_object_from_storage(shape, color)
-        self.robot_arms[storage_id].add_to_queue(configuration["Anomaly8Priority"], "Storage", shape, color)
-        self.robot_arms[opposite_id].set_rules({(shape, color): "Storage"})
-
     # Listens to the IR sensor, if the IR just switched from false to true, then create an event in the DT
     def _ir_listener(self) -> None:
         while self.running:
             with self.lock:
                 self.DT.create_event(("IR", (self.robot_arms[0].get_ir(), self.robot_arms[1].get_ir())))
-
-            time.sleep(0.1)
-
-    def _image_listener(self) -> None:
-        while self.running:
-            for robot_id in range(len(self.robot_arms)):
-                image, metadata = self.robot_arms[robot_id].get_latest_image()
-                if image is not None and metadata is not None:
-                    with self.lock:
-                        event_param = (image, metadata)
-                        self.DT.create_event(("Image", event_param))
 
             time.sleep(0.1)
 
@@ -235,10 +218,6 @@ class System:
         t_anomaly = threading.Thread(target=self._anomaly_listener, daemon=True)
         self.threads.append(t_anomaly)
         t_anomaly.start()
-
-        t_image = threading.Thread(target=self._image_listener, daemon=True)
-        self.threads.append(t_image)
-        t_image.start()
 
     # Gets the most current storage objects from the robotarms and returns them
     def get_objects(self) -> list[StorageObject]:
@@ -287,19 +266,4 @@ class System:
             ]:
                 self.stop_system()
 
-            elif anomaly_log_object[2] in [configuration["Anomalies"][8]]:
-                storage_id = int(anomaly_log_object[1][-1])
-                shape, color = anomaly_log_object[3]
-                self._anomaly_8_mitigation(storage_id, shape, color)
-
-            elif anomaly_log_object[2] in [configuration["Anomalies"][3]]:
-                if len(anomaly_log_object) == 4:
-                    shape, color, robot_id = anomaly_log_object[3]
-                    self._anomaly_3_mitigation(robot_id, shape, color, False)
-
-        storage_pickup_confirmation, robot_id = info[2]
-        if storage_pickup_confirmation != "Waiting":
-            self.robot_arms[robot_id].set_storage_pickup_confirmation(storage_pickup_confirmation)
-
-        info_without_flags = (info[0], info[1])
-        return info_without_flags
+        return info
