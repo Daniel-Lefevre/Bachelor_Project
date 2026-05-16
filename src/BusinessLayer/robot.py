@@ -2,10 +2,9 @@ import copy
 import threading
 import time
 
-import cv2
 import numpy as np
 import paramiko
-from pyniryo import ConveyorDirection, NiryoRobot, ObjectColor, ObjectShape, PinState, PoseObject, uncompress_image
+from pyniryo import ConveyorDirection, NiryoRobot, ObjectColor, ObjectShape, PinState, PoseObject
 
 from resources.environment import configuration
 from resources.PriorityQueue import CustomPriorityQueue
@@ -36,9 +35,6 @@ class RobotArm:
         self.queue = CustomPriorityQueue(configuration["NumberOfPriorities"])
         self.object_updates = []
         self.anomaly_updates = []
-        self.latest_image = None
-        self.time_of_last_image = 0
-        self.image_time_interval = 1.0
         self.IR = False
         self.rules = {}
         self.lock = threading.Lock()
@@ -90,11 +86,6 @@ class RobotArm:
     def drop_object(self) -> None:
         self.ready_to_drop = True
 
-    def get_latest_image(self) -> np.ndarray | None:
-        image = copy.deepcopy(self.latest_image)
-        self.latest_image = None
-        return image
-
     def _enable_camera(self) -> bool:
         output = ""
         # Connect to the robot via SSH
@@ -116,17 +107,6 @@ class RobotArm:
                 return False
 
         return "average rate" in output
-
-    def _take_image(self) -> None:
-        current_time = time.time()
-        if current_time - self.time_of_last_image > self.image_time_interval:
-            print(f"Time since last image: {current_time - self.time_of_last_image}")
-            img_compressed = self.robot.get_img_compressed()
-            img_bgr = uncompress_image(img_compressed)
-            image_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-
-            self.time_of_last_image = current_time
-            self.latest_image = image_rgb
 
     def _stop_conveyorbelt(self) -> None:
         self.conveyor_is_running = False
@@ -241,8 +221,6 @@ class RobotArm:
             return
         with self.lock:
             if self.queue.empty():
-                if self.latest_image is None:
-                    self._take_image()
                 if not self._check_ir():
                     if not self.conveyor_is_running:
                         self._start_conveyorbelt()
@@ -319,7 +297,6 @@ class RobotArm:
 
     def _move_to_observation_position(self) -> None:
         self.robot.move_pose(*self.observation_pose)
-        self._take_image()
 
     def _move_to_observation_position_storage(self) -> None:
         self.robot.move_pose(*self.observation_pose_storage)

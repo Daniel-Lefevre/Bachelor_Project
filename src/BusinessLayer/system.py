@@ -171,17 +171,6 @@ class System:
 
             time.sleep(0.1)
 
-    def _image_listener(self) -> None:
-        while self.running:
-            for robot_id in range(len(self.robot_arms)):
-                image = self.robot_arms[robot_id].get_latest_image()
-                if image is not None:
-                    with self.lock:
-                        event_param = (image, robot_id)
-                        self.DT.create_event(("Image", event_param))
-
-            time.sleep(0.1)
-
     #
     #
     # Public functions
@@ -219,10 +208,6 @@ class System:
         t_anomaly = threading.Thread(target=self._anomaly_listener)
         self.threads.append(t_anomaly)
         t_anomaly.start()
-
-        t_image = threading.Thread(target=self._image_listener)
-        self.threads.append(t_image)
-        t_image.start()
 
     # Gets the most current storage objects from the robotarms and returns them
     def get_objects(self) -> list[StorageObject]:
