@@ -41,20 +41,14 @@ class VirtualRobot:
         placed_position = None
         dropping_object = False
 
-        if self.state.key == "Observation_to_Storage_Observation":
-            self.state = self.states["Storage_Observation_to_Storage"]
-
         # In this state the robot picks up an object and therefore sets the flag and removes it from storage
-        elif self.state.key == "Storage_Observation_to_Storage":
-            self.state = self.states["Storage_to_Storage_Observation"]
+        if self.state.key == "Observation_to_Pickup_Storage":
+            self.state = self.states["Storage_to_Standby"]
             self.storage.remove_object(self.working_object.shape, self.working_object.color)
             picked_up = True
 
-        elif self.state.key == "Storage_to_Storage_Observation":
-            self.state = self.states["Storage_Observation"]
-
         #
-        elif self.state.key in ["Storage_Observation_to_Standby", "Observation_to_Standby"]:
+        elif self.state.key in ["Storage_to_Standby", "Observation_to_Standby"]:
             if objec_at_drop_off:
                 if self.has_exited_anoamly_6:
                     self.anomaly_logs.append((f"Robot {self.id}", configuration["Anomalies"][6]))
@@ -75,7 +69,7 @@ class VirtualRobot:
         elif self.state.key in ["Place_Conveyor_to_Observation", "Place_Storage_to_Observation"]:
             self.state = self.states["Observation"]
 
-        elif self.state.key == "Workspace_Observation_to_Pickup_Conveyor":
+        elif self.state.key == "Observation_to_Pickup_Conveyor":
             self.state = self.states["Pickup_Conveyor_to_Observation"]
             picked_up = True
 
@@ -91,9 +85,6 @@ class VirtualRobot:
             self.state = self.states["Place_Storage_to_Observation"]
             placed_position = "Storage"
             self.storage.add_object(self.working_object.shape, self.working_object.color)
-
-        elif self.state.key == "Observation_to_Workspace_Observation":
-            self.state = self.states["Workspace_Observation_to_Pickup_Conveyor"]
 
         self.current_state_progress = 0
         self.current_state_progress_goal = self.state.time
@@ -119,14 +110,14 @@ class VirtualRobot:
     def handle_anomaly(self, anomaly: str):
         if anomaly == "Anomaly 13":
             if self.state.key in ["Pickup_Conveyor_to_Observation", "Observation_to_Standby", "Observation_to_Place_Storage"]:
-                self.state = self.states["Workspace_Observation_to_Pickup_Conveyor"]
+                self.state = self.states["Observation_to_Pickup_Conveyor"]
                 self.current_state_progress = 0
                 self.current_state_progress_goal = self.state.time
             else:
                 raise Exception(f"Wrong state for anomaly 13 {self.state}")
         elif anomaly == "Anomaly 7":
-            if self.state.key in ["Place_Storage_to_Observation", "Place_Conveyor_to_Observation", "Observation", "Workspace_Observation_to_Pickup_Conveyor"]:
-                self.state = self.states["Workspace_Observation_to_Pickup_Conveyor"]
+            if self.state.key in ["Place_Storage_to_Observation", "Place_Conveyor_to_Observation", "Observation", "Observation_to_Pickup_Conveyor"]:
+                self.state = self.states["Observation_to_Pickup_Conveyor"]
                 self.current_state_progress = 0
                 self.current_state_progress_goal = self.state.time
             else:
@@ -143,31 +134,12 @@ class VirtualRobot:
         if self.state.key == "Observation" and not self.queue.empty():
             self.working_object = self.queue.get()
             if self.working_object.state.origin == "IR":
-                self.state = self.states["Observation_to_Workspace_Observation"]
+                self.state = self.states["Observation_to_Pickup_Conveyor"]
             else:
-                self.state = self.states["Observation_to_Storage_Observation"]
+                self.state = self.states["Observation_to_Pickup_Storage"]
 
             self.current_state_progress_goal = self.state.time
             self.current_state_progress = 0
-
-        if self.state.key == "Storage_Observation":
-            # When confirmed
-            if self.storage_pickup_confirmation == "Success":
-                self.has_attempted_anomaly_12_mitigation = False
-                self.state = self.states["Storage_Observation_to_Standby"]
-                self.current_state_progress = 0
-                self.current_state_progress_goal = self.state.time
-                self.storage_pickup_confirmation = "Waiting"
-
-            elif self.storage_pickup_confirmation == "Failure":
-                if not self.has_attempted_anomaly_12_mitigation:
-                    self.state = self.states["Storage_Observation_to_Storage"]
-                    self.current_state_progress = 0
-                    self.has_attempted_anomaly_12_mitigation = True
-                    self.current_state_progress_goal = self.state.time
-                    self.storage_pickup_confirmation = "Waiting"
-                else:
-                    self.anomaly_logs.append((f"Robot {self.id}", "Anomaly 12 Mitigation failed"))
 
         dropping_object = False
 

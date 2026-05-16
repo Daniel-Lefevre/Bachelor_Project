@@ -56,7 +56,15 @@ class TimeBasedDT:
         # Check if something has arrived at ir
         for robot_id in range(len(self.virtual_robots)):
             if latest_ir_readings[robot_id] and not self.last_ir_readings[robot_id]:
-                object_to_add = SimpleNamespace(state=SimpleNamespace(origin="IR"))
+                highest_progress = 0
+                highest_progress_object = None
+
+                for virtual_object in self.virtual_objects:
+                    if virtual_object.get_progress() > highest_progress:
+                        highest_progress = virtual_object.get_progress()
+                        highest_progress_object = virtual_object
+
+                object_to_add = SimpleNamespace(state=SimpleNamespace(origin="IR", shape=highest_progress_object.shape, color=highest_progress_object.color))
                 self.virtual_robots[robot_id].add_to_queue(configuration["PickFromIRSensorPriority"], object_to_add)
 
         # If an event has occured since last step
@@ -83,6 +91,7 @@ class TimeBasedDT:
                 robot_id, shape, color = event_param
                 self.anomaly_log_messages.append((robot_id, configuration["Anomalies"][13]))
                 print(configuration["Anomalies"][13])
+                print(robot_id)
                 self.virtual_robots[robot_id].handle_anomaly(event_type)
                 for virt_obj in self.virtual_objects:
                     if virt_obj.shape == shape and virt_obj.color == color:
@@ -100,6 +109,7 @@ class TimeBasedDT:
                 for virt_obj in self.virtual_objects:
                     if virt_obj.shape == shape and virt_obj.color == color:
                         virt_obj.handle_anomaly("Anomaly 3", robot_id_arrival)
+                self.virtual_robots[robot_id_arrival].set_working_object(self._find_virtual_object(shape, color))
 
             elif event_type == "Anomaly 7":
                 robot_id, shape, color = event_param

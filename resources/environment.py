@@ -61,55 +61,26 @@ configuration = {
     # Times for the DT
     "Observed_times": {
         # TIME BASED DT TIMES
-        # "Conveyor_0": 8.26,
-        # "Conveyor_1": 8.26,
-        # "Robot_0_Observation_to_Pickup_Storage": 8.86,
-        # "Robot_1_Observation_to_Pickup_Storage": 9.74,
-        # "Robot_0_Workspace_Observation_to_Pickup_Conveyor": 4.66,
-        # "Robot_1_Workspace_Observation_to_Pickup_Conveyor": 4.51,
-        # "Robot_0_Pickup_Conveyor_to_Observation": 5.16,
-        # "Robot_1_Pickup_Conveyor_to_Observation": 5.14,
-        # "Robot_0_Observation_to_Standby": 2.78,
-        # "Robot_1_Observation_to_Standby": 2.88,
-        # "Robot_0_Observation_to_Place_Storage": 3.35,
-        # "Robot_1_Observation_to_Place_Storage": 3.86,
-        # "Robot_0_Standby_to_Place_Conveyor": 1.87,
-        # "Robot_1_Standby_to_Place_Conveyor": 1.69,
-        # "Robot_0_Storage_to_Standby": 6.6,
-        # "Robot_1_Storage_to_Standby": 6.8,
-        # "Robot_0_Place_Storage_to_Observation": 5.18,
-        # "Robot_1_Place_Storage_to_Observation": 5.43,
-        # "Robot_0_Place_Conveyor_to_Observation": 4.43,
-        # "Robot_1_Place_Conveyor_to_Observation": 4.92,
-        # "Robot_0_Observation_to_Workspace_Observation": 1.73,
-        # "Robot_1_Observation_to_Workspace_Observation": 1.73,
-        # VISION BASED DT TIMES
-        "Conveyor_0": 8.5,
-        "Conveyor_1": 8.5,
-        "Robot_0_Observation_to_Storage_Observation": 4.86,  # THIS ONE
-        "Robot_1_Observation_to_Storage_Observation": 5.19,  # THIS ONE
-        "Robot_0_Workspace_Observation_to_Pickup_Conveyor": 4.13,
-        "Robot_1_Workspace_Observation_to_Pickup_Conveyor": 4.28,
-        "Robot_0_Pickup_Conveyor_to_Observation": 6.38,
-        "Robot_1_Pickup_Conveyor_to_Observation": 6.26,
-        "Robot_0_Observation_to_Standby": 2.53,
-        "Robot_1_Observation_to_Standby": 1.92,
-        "Robot_0_Observation_to_Place_Storage": 3.76,
-        "Robot_1_Observation_to_Place_Storage": 3.23,
-        "Robot_0_Standby_to_Place_Conveyor": 1.64,
-        "Robot_1_Standby_to_Place_Conveyor": 2.58,
-        "Robot_0_Storage_Observation_to_Standby": 5.25,  # THIS ONE
-        "Robot_1_Storage_Observation_to_Standby": 5.17,  # THIS ONE
-        "Robot_0_Place_Storage_to_Observation": 3.84,
-        "Robot_1_Place_Storage_to_Observation": 3.46,
+        "Conveyor_0": 6.5,
+        "Conveyor_1": 6.5,
+        "Robot_0_Observation_to_Pickup_Storage": 8.86,
+        "Robot_1_Observation_to_Pickup_Storage": 8.94,
+        "Robot_0_Observation_to_Pickup_Conveyor": 4.66,
+        "Robot_1_Observation_to_Pickup_Conveyor": 4.51,
+        "Robot_0_Pickup_Conveyor_to_Observation": 5.16,
+        "Robot_1_Pickup_Conveyor_to_Observation": 5.14,
+        "Robot_0_Observation_to_Standby": 2.78,
+        "Robot_1_Observation_to_Standby": 2.88,
+        "Robot_0_Observation_to_Place_Storage": 3.35,
+        "Robot_1_Observation_to_Place_Storage": 3.86,
+        "Robot_0_Standby_to_Place_Conveyor": 1.87,
+        "Robot_1_Standby_to_Place_Conveyor": 1.69,
+        "Robot_0_Storage_to_Standby": 6.6,
+        "Robot_1_Storage_to_Standby": 6.8,
+        "Robot_0_Place_Storage_to_Observation": 5.18,
+        "Robot_1_Place_Storage_to_Observation": 5.43,
         "Robot_0_Place_Conveyor_to_Observation": 2.93,
-        "Robot_1_Place_Conveyor_to_Observation": 3.40,
-        "Robot_0_Observation_to_Workspace_Observation": 2.09,
-        "Robot_1_Observation_to_Workspace_Observation": 1.69,
-        "Robot_0_Storage_Observation_to_Storage": 4.65,  # This one
-        "Robot_1_Storage_Observation_to_Storage": 3.95,  # This one
-        "Robot_0_Storage_to_Storage_Observation": 5.54,  # This one
-        "Robot_1_Storage_to_Storage_Observation": 5.6,  # This one
+        "Robot_1_Place_Conveyor_to_Observation": 2.82,
     },
     "storagePositions": [
         [

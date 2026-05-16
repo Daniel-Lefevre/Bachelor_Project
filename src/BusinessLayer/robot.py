@@ -22,7 +22,8 @@ class RobotArm:
         self.conveyor_workspace = f"Conveyor_workspace_{self.ID}"
         self.storage_workspace = f"Storage_workspace_{self.ID}"
         self.conveyor_speed = 75
-        self.place_conveyor, self.observation_pose, self.observation_pose_storage, self.standby_position, self.observation_pose_conveyor = positions
+        self.observation_pose = [0.0, 0.0, 0.0, 0.0, -1.57, 0.0]
+        self.place_conveyor, _, self.observation_pose_storage, self.standby_position, self.observation_pose_conveyor = positions
         # self.observation_pose = self.observation_pose_conveyor
         self.place_storage = configuration["storagePositions"][self.ID]
         self.occupied_storage = initial_object_positions
@@ -303,7 +304,7 @@ class RobotArm:
 
     def _move_to_observation_position(self) -> None:
         if not self.stop_event.is_set():
-            self.robot.move_pose(*self.observation_pose)
+            self.robot.move_joints(self.observation_pose)
 
     def _move_to_observation_position_storage(self) -> None:
         if not self.stop_event.is_set():
