@@ -246,10 +246,9 @@ class GUI:
 
     # Update the Animation with DT data every 100 ms
     def _update_animation(self):
-        animation_info, anomaly_log_objects = self.system.get_info_dt()
+        anomaly_log_objects = self.system.get_anomalies()
         for anomaly_log_object in anomaly_log_objects:
             self._add_log(anomaly_log_object)
-        self.animation.set_info_dt(animation_info)
         self.root.after(100, self._update_animation)
 
     # Call move_object function in system when a button has been clicked in
