@@ -91,7 +91,6 @@ class TimeBasedDT:
                 robot_id, shape, color = event_param
                 self.anomaly_log_messages.append((robot_id, configuration["Anomalies"][13]))
                 print(configuration["Anomalies"][13])
-                print(robot_id)
                 self.virtual_robots[robot_id].handle_anomaly(event_type)
                 for virt_obj in self.virtual_objects:
                     if virt_obj.shape == shape and virt_obj.color == color:
