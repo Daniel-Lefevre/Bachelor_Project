@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import copy
+import queue  # Safe thread queue
 import threading
 import time
 from datetime import datetime
 from typing import TYPE_CHECKING
+
+# Import keyboard for the global hook listener
+import keyboard
 
 from resources.environment import StorageObject, configuration
 from src.BusinessLayer.robot import RobotArm
@@ -23,6 +27,7 @@ class System:
         self.anoamlies = []
         self.has_logged_anomaly_9 = False
         self.has_logged_anomaly_13 = False
+        self.keyboard_queue = queue.Queue()
 
         # Add all the robot arms
         for i in range(len(ips)):
@@ -36,6 +41,56 @@ class System:
     # Private functions
     #
     #
+
+    def _keyboard_listener(self) -> None:
+        """
+        Low-level OS hook. Dumps actions instantly into a queue to prevent
+        interfering with low-level thread timing or causing Unicode errors.
+        """
+        print("Thread-safe keyboard hooks active.")
+        print("Press [k/m] for speed, [j] for direction, [h] for vacuum hold.")
+
+        # Format: (arm_id, action_type, value)
+        keyboard.on_press_key("k", lambda _: self.keyboard_queue.put((1, "speed", 15)))
+        keyboard.on_press_key("m", lambda _: self.keyboard_queue.put((0, "speed", 15)))
+        keyboard.on_press_key("j", lambda _: self.keyboard_queue.put((0, "direction", None)))
+        keyboard.on_press_key("h", lambda _: self.keyboard_queue.put((1, "vacuum", None)))
+
+    def _keyboard_processor_worker(self) -> None:
+        """
+        Dedicated background worker thread that pulls actions from the queue
+        and applies them to the robot arms safely using the individual robot's lock.
+        """
+        while self.running:
+            try:
+                arm_id, action, value = self.keyboard_queue.get(timeout=0.1)
+
+                if arm_id >= len(self.robot_arms):
+                    self.keyboard_queue.task_done()
+                    continue
+
+                arm = self.robot_arms[arm_id]
+
+                # CRITICAL FIX: Acquire the ROBOT's lock, not the System lock!
+                # This prevents the keyboard thread from reading the TCP socket
+                # while the robot worker thread is executing arm.loop()
+                with arm.lock:
+                    if action == "speed":
+                        print(f"[KEYBOARD] Safely setting Robot {arm_id} conveyor speed to {value}")
+                        arm.change_speed_of_conveyor_belt(value)
+                    elif action == "direction":
+                        print(f"[KEYBOARD] Safely changing Robot {arm_id} conveyor direction")
+                        arm.change_conveyor_direction()
+                    elif action == "vacuum":
+                        print(f"[KEYBOARD] Safely locking Robot {arm_id} vacuum")
+                        arm.dont_release_vacuum()
+
+                self.keyboard_queue.task_done()
+
+            except queue.Empty:
+                continue
+            except Exception as e:
+                print(f"Error handling keyboard command: {e}")
 
     # Sets up the connections to the robot arms
     def _robot_worker(self, arm: RobotArm) -> None:
@@ -102,7 +157,7 @@ class System:
                 for message in messages:
                     if message[0] in ["Anomaly 13 Mitigation failed"]:
                         if not self.has_logged_anomaly_13:
-                            self.anoamlies.append((current_time, f"Conveyor {robot_id}", configuration["Anomalies"][13]))
+                            self.anoamlies.append((current_time, f"Conveyor {robot_id}", "Anomaly 13 Mitigation failed"))
                         robot_arm.set_mitigation_mode(True)
                         self.has_logged_anomaly_13 = True
 
@@ -185,7 +240,7 @@ class System:
         if hasattr(self, "threads"):
             for t in self.threads:
                 if t is not current_thread:
-                    # If the thread doesn't close in 1s, move on anyway.
+                    # If the thread doesn't close in 5s, move on anyway.
                     t.join(timeout=5.0)
                     if t.is_alive():
                         print(f"Warning: Thread {t.name} did not shut down cleanly.")
@@ -202,6 +257,13 @@ class System:
         t_anomaly = threading.Thread(target=self._anomaly_listener, daemon=True)
         self.threads.append(t_anomaly)
         t_anomaly.start()
+
+        # New: Setup and start the keyboard hook worker thread
+        self._keyboard_listener()
+
+        t_kbd_processor = threading.Thread(target=self._keyboard_processor_worker, daemon=True)
+        self.threads.append(t_kbd_processor)
+        t_kbd_processor.start()
 
     # Gets the most current storage objects from the robotarms and returns them
     def get_objects(self) -> list[StorageObject]:

@@ -23,7 +23,7 @@ class RobotArm:
         self.storage_workspace = f"Storage_workspace_{self.ID}"
         self.conveyor_speed = 75
         self.place_conveyor, self.observation_pose, self.observation_pose_storage, self.standby_position, self.observation_pose_conveyor = positions
-        # self.observation_pose = self.observation_pose_conveyor
+        self.observation_pose = [0.0, 0.0, 0.0, 0.0, -1.57, 0.0]
         self.place_storage = configuration["storagePositions"][self.ID]
         self.occupied_storage = initial_object_positions
         self.conveyor_id = self.robot.set_conveyor()
@@ -45,9 +45,22 @@ class RobotArm:
         self.stop_event = stop_event
         self.storage_pickup_confirmation = "Waiting"
         self.is_in_observation = False
+        self.release_vacuum = True
 
     def get_ir(self) -> bool:
         return self.IR
+
+    def dont_release_vacuum(self):
+        self.release_vacuum = False
+
+    def change_speed_of_conveyor_belt(self, speed):
+        self.conveyor_speed = speed
+        self.conveyor_is_running = True
+        self.robot.run_conveyor(self.conveyor_id, speed=speed, direction=ConveyorDirection.BACKWARD)
+
+    def change_conveyor_direction(self):
+        self.conveyor_is_running = True
+        self.robot.run_conveyor(self.conveyor_id, speed=self.conveyor_speed, direction=ConveyorDirection.FORWARD)
 
     def _start_conveyorbelt(self) -> None:
         self.conveyor_is_running = True
@@ -144,13 +157,13 @@ class RobotArm:
                 target_pose.x += 0
                 target_pose.y -= 0.008
             elif self.ID == 1:
-                target_pose.x += 0.020
+                target_pose.x += 0.015
                 target_pose.y -= 0.005
                 target_pose.z -= 0.01
         elif workspace == self.conveyor_workspace:
             if self.ID == 0:
-                target_pose.x += 0.0115
-                target_pose.y -= 0.0095
+                target_pose.x += 0.0165
+                target_pose.y -= 0.0125
                 target_pose.z += 0.005
             elif self.ID == 1:
                 target_pose.x += 0.018
@@ -159,7 +172,8 @@ class RobotArm:
         return target_pose
 
     def _release_with_tool(self) -> None:
-        self.robot.release_with_tool()
+        if self.release_vacuum:
+            self.robot.release_with_tool()
 
     def _find_and_move_object(self, workspace: str, shape: ObjectShape, color: ObjectColor, destination: list[float] | None) -> None:
         # Try to detect the object 10 times
@@ -302,7 +316,7 @@ class RobotArm:
 
     def _move_to_observation_position(self) -> None:
         if not self.stop_event.is_set():
-            self.robot.move_pose(*self.observation_pose)
+            self.robot.move_joints(self.observation_pose)
 
     def _move_to_observation_position_storage(self) -> None:
         if not self.stop_event.is_set():

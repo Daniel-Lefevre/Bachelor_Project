@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from PIL import Image, ImageOps
 
-from src.PresentationLayer.animation import Animation
+from src.PresentationLayer.Animation import Animation
 
 
 class GUI:
@@ -210,7 +210,7 @@ class GUI:
             text_color=self.text_color,
             justify="left",
             anchor="w",
-            wraplength=400,  # IMPORTANT: fixed width
+            wraplength=350,  # IMPORTANT: fixed width
         )
 
         label.pack(
