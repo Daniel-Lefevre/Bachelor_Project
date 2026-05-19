@@ -169,7 +169,7 @@ class RobotArm:
                 target_pose.z += 0.005
             elif self.ID == 1:
                 target_pose.x += 0.018
-                target_pose.y += 0.013
+                target_pose.y += 0.009
                 target_pose.z += 0.005
         return target_pose
 
