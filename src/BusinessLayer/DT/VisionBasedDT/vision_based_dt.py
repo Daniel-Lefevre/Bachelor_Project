@@ -79,7 +79,15 @@ class VisionBasedDT:
         # Check if something has arrived at ir
         for robot_id in range(len(self.virtual_robots)):
             if latest_ir_readings[robot_id] and not self.last_ir_readings[robot_id]:
-                object_to_add = SimpleNamespace(state=SimpleNamespace(origin="IR"))
+                highest_progress = 0
+                highest_progress_object = None
+
+                for virtual_object in self.virtual_objects:
+                    if virtual_object.get_progress() > highest_progress:
+                        highest_progress = virtual_object.get_progress()
+                        highest_progress_object = virtual_object
+
+                object_to_add = SimpleNamespace(state=SimpleNamespace(origin="IR"), shape=highest_progress_object.shape, color=highest_progress_object.color)
                 self.virtual_robots[robot_id].add_to_queue(configuration["PickFromIRSensorPriority"], object_to_add)
 
         # If an event has occured since last step
@@ -121,10 +129,9 @@ class VisionBasedDT:
                                         # Update the virtual object
                                         error_correction = return_object.updates[update_category]
                                         virtual_object.set_progress(virtual_object.get_progress() + error_correction)
-                                        if error_correction > 0:
+                                        if error_correction < 0:
                                             # Pushed backwards
                                             self.anomaly_log_messages.append((f"Conveyor {virtual_object.get_state().id}", "Either anomaly 1 or 4 has occured"))
-
                                         else:
                                             # Pushed forwards
                                             self.anomaly_log_messages.append((f"Conveyor {virtual_object.get_state().id}", "Either anomaly 2 or 4 has occured"))
@@ -171,7 +178,7 @@ class VisionBasedDT:
                         virt_obj.handle_anomaly(event_type)
 
             elif event_type == "Anomaly 13 Mitigation failed":
-                robot_id = event_param
+                robot_id, _, _ = event_param
                 self.anomaly_log_messages.append((f"Robot {robot_id}", "Anomaly 13 Mitigation failed"))
                 print("Anomaly 13 Mitigation failed, Human intervention required")
 

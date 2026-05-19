@@ -52,6 +52,19 @@ class RobotArm:
         self.stop_event = stop_event
         self.storage_pickup_confirmation = "Waiting"
         self.is_in_observation = False
+        self.release_vacuum = True
+
+    def dont_release_vacuum(self):
+        self.release_vacuum = False
+
+    def change_speed_of_conveyor_belt(self, speed):
+        self.conveyor_speed = speed
+        self.conveyor_is_running = True
+        self.robot.run_conveyor(self.conveyor_id, speed=speed, direction=ConveyorDirection.BACKWARD)
+
+    def change_conveyor_direction(self):
+        self.conveyor_is_running = True
+        self.robot.run_conveyor(self.conveyor_id, speed=self.conveyor_speed, direction=ConveyorDirection.FORWARD)
 
     def get_ir(self) -> bool:
         return self.IR
@@ -142,6 +155,7 @@ class RobotArm:
         self.robot.stop_conveyor(self.conveyor_id)
 
     def _move_to_standby_position(self) -> None:
+        self.is_in_observation = False
         if not self.stop_event.is_set():
             self.robot.move_pose(self.standby_position)
 
@@ -182,14 +196,16 @@ class RobotArm:
                 target_pose.z += 0.005
             elif self.ID == 1:
                 target_pose.x += 0.018
-                target_pose.y += 0.013
+                target_pose.y += 0.008
                 target_pose.z += 0.005
         return target_pose
 
     def _release_with_tool(self) -> None:
-        self.robot.release_with_tool()
+        if self.release_vacuum:
+            self.robot.release_with_tool()
 
     def _find_and_move_object(self, workspace: str, shape: ObjectShape, color: ObjectColor, destination: list[float] | None) -> None:
+        self.is_in_observation = False
         # Try to detect the object 10 times
         for _ in range(10):
             if self.stop_event.is_set():
@@ -353,31 +369,42 @@ class RobotArm:
         time.sleep(1)
 
     def _move_to_observation_position(self) -> None:
+        self.is_in_observation = False
         if not self.stop_event.is_set():
             self.robot.move_pose(*self.observation_pose)
-            time.sleep(0.5)
+            time.sleep(0.25)
             self._take_image("Conveyors")
+            time.sleep(0.25)
 
     def _move_to_observation_position_storage(self) -> None:
+        self.is_in_observation = False
         if not self.stop_event.is_set():
             self.robot.move_pose(*self.observation_pose_storage)
-            time.sleep(0.5)
+            time.sleep(0.25)
             self._set_camera_settings("Storage")
+            print("Taking image")
             self._take_image("Storage")
+            print("Done with image")
+            time.sleep(0.25)
 
     def _move_to_observation_position_conveyor(self) -> None:
+        self.is_in_observation = False
         if not self.stop_event.is_set():
             self.robot.move_pose(*self.observation_pose_conveyor)
             self._set_camera_settings("Conveyor")
 
     def _place_and_release(self, destination: list[float]) -> None:
+        self.is_in_observation = False
         if destination == self.place_conveyor and not self.stop_event.is_set():
             self._move_to_standby_position()
             start_time = time.time()
 
+            stop_conveyor_flag = False
+
             while not self.ready_to_drop and not self.stop_event.is_set():
-                if self._check_ir():
+                if self._check_ir() or stop_conveyor_flag:
                     self._stop_conveyorbelt()
+                    stop_conveyor_flag = True
                 elif time.time() - start_time > 0.2:
                     self._start_conveyorbelt()
 
@@ -391,6 +418,7 @@ class RobotArm:
             self._release_with_tool()
 
     def _pick_and_place(self, destination: list[float], final_destination: bool, shape: ObjectShape, color: ObjectColor, workspace: str) -> None:
+        self.is_in_observation = False
         if self.stop_event.is_set():
             return
 

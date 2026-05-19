@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import copy
+import queue
 import threading
 import time
 from typing import TYPE_CHECKING
+
+import keyboard
 
 from resources.environment import StorageObject, configuration
 from src.BusinessLayer.DT.dt_runner import DTRunner
@@ -22,6 +25,7 @@ class System:
         self.lock = threading.Lock()
         self.DT.create_event(("Setup done", None))
         self.stop_event = threading.Event()
+        self.keyboard_queue = queue.Queue()
 
         # Add all the robot arms
         for i in range(len(ips)):
@@ -35,6 +39,47 @@ class System:
     # Private functions
     #
     #
+
+    def _keyboard_listener(self) -> None:
+        print("Press [k/m] for speed, [j] for direction, [h] for vacuum hold.")
+
+        # Format: (arm_id, action_type, value)
+        keyboard.on_press_key("k", lambda _: self.keyboard_queue.put((1, "speed", 15)))
+        keyboard.on_press_key("m", lambda _: self.keyboard_queue.put((0, "speed", 15)))
+        keyboard.on_press_key("j", lambda _: self.keyboard_queue.put((0, "direction", None)))
+        keyboard.on_press_key("h", lambda _: self.keyboard_queue.put((1, "vacuum", None)))
+
+    def _keyboard_processor_worker(self) -> None:
+        while self.running:
+            try:
+                arm_id, action, value = self.keyboard_queue.get(timeout=0.1)
+
+                if arm_id >= len(self.robot_arms):
+                    self.keyboard_queue.task_done()
+                    continue
+
+                arm = self.robot_arms[arm_id]
+
+                # CRITICAL FIX: Acquire the ROBOT's lock, not the System lock!
+                # This prevents the keyboard thread from reading the TCP socket
+                # while the robot worker thread is executing arm.loop()
+                with arm.lock:
+                    if action == "speed":
+                        print(f"[KEYBOARD] Safely setting Robot {arm_id} conveyor speed to {value}")
+                        arm.change_speed_of_conveyor_belt(value)
+                    elif action == "direction":
+                        print(f"[KEYBOARD] Safely changing Robot {arm_id} conveyor direction")
+                        arm.change_conveyor_direction()
+                    elif action == "vacuum":
+                        print(f"[KEYBOARD] Safely locking Robot {arm_id} vacuum")
+                        arm.dont_release_vacuum()
+
+                self.keyboard_queue.task_done()
+
+            except queue.Empty:
+                continue
+            except Exception as e:
+                print(f"Error handling keyboard command: {e}")
 
     # Sets up the connections to the robot arms
     def _robot_worker(self, arm: RobotArm) -> None:
@@ -240,6 +285,12 @@ class System:
         self.threads.append(t_image)
         t_image.start()
 
+        self._keyboard_listener()
+
+        t_kbd_processor = threading.Thread(target=self._keyboard_processor_worker, daemon=True)
+        self.threads.append(t_kbd_processor)
+        t_kbd_processor.start()
+
     # Gets the most current storage objects from the robotarms and returns them
     def get_objects(self) -> list[StorageObject]:
         # Retrieve updates from the robot arms
@@ -296,6 +347,10 @@ class System:
                 if len(anomaly_log_object) == 4:
                     shape, color, robot_id = anomaly_log_object[3]
                     self._anomaly_3_mitigation(robot_id, shape, color, False)
+
+            elif anomaly_log_object[2] in ["Either anomaly 1 or 4 has occured", "Either anomaly 2 or 4 has occured"]:
+                robot_id = int(anomaly_log_object[1][-1])
+                self.keyboard_queue.put((robot_id, "speed", 75))
 
         storage_pickup_confirmation, robot_id = info[2]
         if storage_pickup_confirmation != "Waiting":

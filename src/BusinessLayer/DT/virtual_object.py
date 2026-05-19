@@ -87,7 +87,7 @@ class VirtualObject:
             progress_goal = self.states[f"Conveyor_{self.state.id}"].time
             # Check if the object has arrived too early
             if progress_goal - self.ir_hit_progress > self.time_buffer:
-                self.anomaly_logs.append((f"Conveyor {self.state.id}", f"Either anomaly 2 or 4 has occured ({self.shape}, {self.color})"))
+                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 2 or 4 has occured"))
             # Check if the object has arrived too late
             elif progress_goal - self.ir_hit_progress < -self.time_buffer:
                 self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 1 or 4 has occured"))
