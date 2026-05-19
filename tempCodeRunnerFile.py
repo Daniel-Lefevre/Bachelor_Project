@@ -1,0 +1,2 @@
+
+    system = System(IPs, positions)
