@@ -64,7 +64,7 @@ class TimeBasedDT:
                         highest_progress = virtual_object.get_progress()
                         highest_progress_object = virtual_object
 
-                object_to_add = SimpleNamespace(state=SimpleNamespace(origin="IR", shape=highest_progress_object.shape, color=highest_progress_object.color))
+                object_to_add = SimpleNamespace(state=SimpleNamespace(origin="IR"), shape=highest_progress_object.shape, color=highest_progress_object.color)
                 self.virtual_robots[robot_id].add_to_queue(configuration["PickFromIRSensorPriority"], object_to_add)
 
         # If an event has occured since last step
@@ -97,7 +97,7 @@ class TimeBasedDT:
                         virt_obj.handle_anomaly(event_type)
 
             elif event_type == "Anomaly 13 Mitigation failed":
-                robot_id = event_param
+                robot_id, _, _ = event_param
                 self.anomaly_log_messages.append((f"Robot {robot_id}", "Anomaly 13 Mitigation failed"))
                 print("Anomaly 13 Mitigation failed, Human intervention required")
 
@@ -117,7 +117,7 @@ class TimeBasedDT:
                 self.virtual_robots[robot_id].handle_anomaly(event_type)
 
             elif event_type == "Anomaly 9":
-                robot_id = event_param
+                robot_id, _, _ = event_param
                 self.anomaly_log_messages.append((f"Robot {robot_id}", configuration["Anomalies"][9]))
                 print(configuration["Anomalies"][9])
 

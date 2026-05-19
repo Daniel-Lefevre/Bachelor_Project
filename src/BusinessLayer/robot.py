@@ -47,6 +47,19 @@ class RobotArm:
         self.stop_event = stop_event
         self.storage_pickup_confirmation = "Waiting"
         self.is_in_observation = False
+        self.release_vacuum = True
+
+    def dont_release_vacuum(self):
+        self.release_vacuum = False
+
+    def change_speed_of_conveyor_belt(self, speed):
+        self.conveyor_speed = speed
+        self.conveyor_is_running = True
+        self.robot.run_conveyor(self.conveyor_id, speed=speed, direction=ConveyorDirection.BACKWARD)
+
+    def change_conveyor_direction(self):
+        self.conveyor_is_running = True
+        self.robot.run_conveyor(self.conveyor_id, speed=self.conveyor_speed, direction=ConveyorDirection.FORWARD)
 
     def get_ir(self) -> bool:
         return self.IR
@@ -161,7 +174,8 @@ class RobotArm:
         return target_pose
 
     def _release_with_tool(self) -> None:
-        self.robot.release_with_tool()
+        if self.release_vacuum:
+            self.robot.release_with_tool()
 
     def _find_and_move_object(self, workspace: str, shape: ObjectShape, color: ObjectColor, destination: list[float] | None) -> None:
         # Try to detect the object 10 times
