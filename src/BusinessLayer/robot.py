@@ -157,7 +157,7 @@ class RobotArm:
                 target_pose.x += 0
                 target_pose.y -= 0.008
             elif self.ID == 1:
-                target_pose.x += 0.015
+                target_pose.x += 0.021
                 target_pose.y -= 0.005
                 target_pose.z -= 0.01
         elif workspace == self.conveyor_workspace:
