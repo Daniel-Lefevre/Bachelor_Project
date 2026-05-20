@@ -197,7 +197,7 @@ class RobotArm:
             elif self.ID == 1:
                 target_pose.x += 0.018
                 target_pose.y += 0.008
-                target_pose.z += 0.005
+                target_pose.z += 0.006
         return target_pose
 
     def _release_with_tool(self) -> None:
