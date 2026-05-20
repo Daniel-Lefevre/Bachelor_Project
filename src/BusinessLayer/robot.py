@@ -162,13 +162,13 @@ class RobotArm:
                 target_pose.z -= 0.01
         elif workspace == self.conveyor_workspace:
             if self.ID == 0:
-                target_pose.x += 0.0165
+                target_pose.x += 0.0115
                 target_pose.y -= 0.0125
                 target_pose.z += 0.005
 
                 if shape == ObjectShape.CIRCLE and color == ObjectColor.BLUE:
-                    target_pose.x += 0.007
-                    target_pose.y += 0.014
+                    target_pose.x += 0.003
+                    target_pose.y += 0.011
                     target_pose.z += 0.001
 
             elif self.ID == 1:
