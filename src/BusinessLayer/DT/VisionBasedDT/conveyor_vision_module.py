@@ -312,6 +312,7 @@ class ConveyorVisionModule:
 
             if virtual_object.state.origin == "Conveyor" and not object_is_in_image and virtual_object.progress >= self.min_progress_threshold and virtual_object.progress <= self.max_progress_progress_threshold:
                 update_object_dict["missing"] = True
+                print("NOT SEEN")
 
                 if virtual_object.missing_counter == 4:
                     # Anomaly 5
