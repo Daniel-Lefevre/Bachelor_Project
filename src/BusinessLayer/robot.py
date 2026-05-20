@@ -149,7 +149,7 @@ class RobotArm:
         self.robot._grasp_with_tool()
 
     # Manually correct the offset of the robots (could e.g. be caused by camera distortion)
-    def _correct_robot_offset(self, target_pose: PoseObject, workspace: str) -> PoseObject:
+    def _correct_robot_offset(self, target_pose: PoseObject, workspace: str, shape=None, color=None) -> PoseObject:
         if self.ID == 1:
             target_pose = self._inverse_workspacepose(workspace, target_pose)
 
@@ -164,9 +164,13 @@ class RobotArm:
                 target_pose.z -= 0.01
         elif workspace == self.conveyor_workspace:
             if self.ID == 0:
-                target_pose.x += 0.0115
+                target_pose.x += 0.007
                 target_pose.y -= 0.0095
                 target_pose.z += 0.005
+                if shape == ObjectShape.CIRCLE and color == ObjectColor.BLUE:
+                    target_pose.x += 0.0155
+                    target_pose.y += 0.0075
+                    target_pose.z += 0.001
             elif self.ID == 1:
                 target_pose.x += 0.018
                 target_pose.y += 0.009
@@ -225,7 +229,7 @@ class RobotArm:
             x, y, object_yaw = object_pose
 
             target_pose = self.robot.get_target_pose_from_rel(workspace, 0, x, y, object_yaw)
-            corrected_target_pose = self._correct_robot_offset(target_pose, workspace)
+            corrected_target_pose = self._correct_robot_offset(target_pose, workspace, shape_ret, color_ret)
 
             if corrected_target_pose:
                 self.robot.pick_from_pose(corrected_target_pose)
