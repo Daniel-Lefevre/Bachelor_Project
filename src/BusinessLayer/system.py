@@ -330,6 +330,7 @@ class System:
             if anomaly_log_object[2] in [
                 "Anomaly 12 Mitigation failed",
                 "Anomaly 13 Mitigation failed",
+                "Mitigation for anomaly 1, 4, 5, 10, 11 or 12 has failed",
                 configuration["Anomalies"][9],
                 configuration["Anomalies"][14],
                 configuration["Anomalies"][15],

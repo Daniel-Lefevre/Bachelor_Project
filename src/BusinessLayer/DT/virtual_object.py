@@ -95,6 +95,16 @@ class VirtualObject:
 
             self.ir_hit_progress = None
 
+        elif self.current_state_progress_goal - self.current_state_progress < -self.time_buffer:
+            if self.time_object_went_missing is None:
+                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Either anomaly 1, 4, 5, 10, 11 or 12 has occured"))
+                self.time_object_went_missing = self.current_state_progress
+
+            elif self.time_object_went_missing - self.current_state_progress < -10.0:
+                print(f"Mitigation failed: {self.shape} {self.color}. Progress: {self.current_state_progress}/{self.current_state_progress_goal}")
+                self.anomaly_logs.append((f"Conveyor {self.state.id}", "Mitigation for anomaly 1, 4, 5, 10, 11 or 12 has failed"))
+                self.time_object_went_missing = None
+
         # if the virtual object has been placed on a conveyor then update the object
         elif placed_position == "Conveyor":
             self.missing_counter = 0
