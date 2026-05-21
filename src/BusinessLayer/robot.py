@@ -168,8 +168,8 @@ class RobotArm:
                 target_pose.y -= 0.0095
                 target_pose.z += 0.005
                 if shape == ObjectShape.CIRCLE and color == ObjectColor.BLUE:
-                    target_pose.x += 0.0155
-                    target_pose.y += 0.0075
+                    target_pose.x += 0.009
+                    target_pose.y += 0.002
                     target_pose.z += 0.001
             elif self.ID == 1:
                 target_pose.x += 0.018
