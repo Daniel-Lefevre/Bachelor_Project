@@ -199,11 +199,7 @@ class ConveyorVisionModule:
 
         return processed_image
 
-    #
-    # Public functions
-    #
-
-    def process_image(self, image: np.ndarray, robot_id: int, opposite_robot_state_key: str) -> list[tuple[ObjectShape, ObjectColor | str] | int, int]:
+    def _process_image(self, image: np.ndarray, robot_id: int, opposite_robot_state_key: str) -> list[tuple[ObjectShape, ObjectColor | str] | int, int]:
 
         cropped_images_and_centers = self._detect_object(self._crop_out_conveyor(image, robot_id), robot_id)
 
@@ -231,6 +227,10 @@ class ConveyorVisionModule:
 
         return classified_objects_and_progress
 
+    #
+    # Public functions
+    #
+
     def compare_image_with_DT(self, image: np.ndarray, robot_id: int, state_snapshot: SimpleNamespace) -> tuple[list[SimpleNamespace], list[SimpleNamespace]]:
         virtual_objects = state_snapshot.objects
         virtual_robots = state_snapshot.robots
@@ -238,7 +238,7 @@ class ConveyorVisionModule:
 
         opposite_id = 0 if robot_id == 1 else 1
         opposite_robot_state_key = virtual_robots[opposite_id].state.key
-        classified_objects_and_progress = self.process_image(image, robot_id, opposite_robot_state_key)
+        classified_objects_and_progress = self._process_image(image, robot_id, opposite_robot_state_key)
 
         # Track which conveyors have unknown objects in this frame to reset counters for those that don't
         conveyors_with_unknowns = set()

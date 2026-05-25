@@ -157,11 +157,7 @@ class StorageVisionModule:
 
         return final_result
 
-    #
-    # Public functions
-    #
-
-    def process_image(self, image: np.ndarray, robot_id: int) -> list[tuple[ObjectShape, ObjectColor | str] | int, int]:
+    def _process_image(self, image: np.ndarray, robot_id: int) -> list[tuple[ObjectShape, ObjectColor | str] | int, int]:
 
         cropped_images = self._detect_object(self._crop_out_storage(image, robot_id))
 
@@ -175,11 +171,15 @@ class StorageVisionModule:
 
         return classified_objects
 
+    #
+    # Public functions
+    #
+
     def compare_image_with_DT(self, image: np.ndarray, robot_id: int, state_snapshot: SimpleNamespace) -> tuple[list[SimpleNamespace], list[SimpleNamespace]]:
         virtual_objects = state_snapshot.objects
         virtual_robots = state_snapshot.robots
 
-        classified_objects = self.process_image(image, robot_id)
+        classified_objects = self._process_image(image, robot_id)
         print("Classified object:", classified_objects)
 
         for object in classified_objects:
