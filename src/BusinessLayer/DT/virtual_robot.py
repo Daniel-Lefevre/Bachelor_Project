@@ -91,9 +91,6 @@ class VirtualRobot:
 
         return (picked_up, placed_position, dropping_object)
 
-    def set_storage_pickup_confirmation(self, value: str) -> None:
-        self.storage_pickup_confirmation = value
-
     def get_conveyor_info(self) -> bool:
         return self.conveyor.get_info()
 
