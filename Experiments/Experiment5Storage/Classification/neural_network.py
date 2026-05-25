@@ -102,6 +102,12 @@ if __name__ == "__main__":
     study = optuna.create_study(direction="maximize", pruner=pruner)
     study.optimize(objective, n_trials=30, show_progress_bar=True)
 
+    print("\n===== BEST HYPERPARAMETERS =====")
+    for key, value in study.best_params.items():
+        print(f"{key}: {value}")
+
+    print(f"\nBest validation accuracy: {study.best_value:.4f}")
+
     # Save Optuna Plots
     vis.plot_optimization_history(study)
     plt.savefig(os.path.join(output_folder, "opt_history.png"), dpi=300)
