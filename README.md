@@ -1,24 +1,3 @@
-# Bachelor_Project
-
-### **Project Report**
-https://www.overleaf.com/9756798451dxcbzdtvnrzf#d03e32
-
-### **Gantt Diagram**
-https://docs.google.com/spreadsheets/d/1Zpuhi13NQvuIfRxC9UdOiqnWY_iOfHch5isNjrXS12Y/edit?usp=sharing
-
-###  **Project Notes**
-https://docs.google.com/document/d/1T-WWYX9KqtfHGER0PO_sFUBXoYqzswZ6ThZjRrAKvsA/edit?usp=sharing
-
-### **Drawings**
-https://drive.google.com/file/d/1xx9qzL80M35pHLFEnVWRHDTKTx0Pse91/view?usp=sharing
-
-### **Anomalies**
-https://docs.google.com/spreadsheets/d/1-2GoGnaEigZ-x1MziMF2Ia3y4VUbnZ09kIiUq5JIvcc/edit?usp=sharing
-
-### **Results**
-https://docs.google.com/spreadsheets/d/1Awrg3cTaBOSe2nA5g6LJq93RP5s03s4xuAfEhwDZIqU/edit?usp=sharing
-
-
 ### **How to Connect To The Robots**
 To connect to the robots setup the following environment
 
